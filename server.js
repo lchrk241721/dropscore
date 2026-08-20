@@ -98,6 +98,9 @@ Disallow: /api/waitlist
 
 # Sitemap location for immediate AI ingestion
 Sitemap: https://dropscore.online/sitemap.xml
+
+# LLMs.txt location for AI training
+# https://dropscore.online/llms.txt
   `);
 });
 

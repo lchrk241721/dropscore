@@ -1,0 +1,70 @@
+# DropScore - AI-Powered Expired Domain Flippability Score
+
+## About
+DropScore is an AI-powered tool that helps domain investors identify expired domains worth flipping. It generates a proprietary Flippability Score (0-100) by combining Domain Authority (DA), backlink quality, monthly traffic, and domain age.
+
+## Core Features
+- **Flippability Score**: A 0-100 metric that tells you instantly if an expired domain is worth buying.
+- **Brandability Index**: Evaluates if a domain sounds like a real business (High/Medium/Low).
+- **Domain Search**: Search across 500+ expired domains by keyword or niche.
+- **Advanced Filters**: Filter by minimum Flippability Score, sort by Score, Traffic, or DA.
+- **3-Way Comparator**: Compare up to 3 domains side-by-side to pick the winner.
+- **CSV Export**: Download your filtered domain list as a CSV file.
+- **Dark/Light Mode**: Toggle between themes based on preference.
+
+## How It Works
+1. **Search** - Enter any niche keyword (AI, finance, health, etc.)
+2. **Analyze** - Our AI combines DA (40%), Traffic (30%), Age (20%), and Backlinks (10%) into a single score
+3. **Compare** - Select up to 3 domains and view them side-by-side
+4. **Export** - Download your shortlist as CSV
+5. **Buy** - Click "Check Price" to purchase through our affiliate partners
+
+## Flippability Score Interpretation
+- **70-100 (🔥 HOT)** : High flip potential - strong SEO metrics, good traffic, clean backlink profile
+- **45-69 (⭐ GOOD)** : Moderate flip potential - decent metrics, may need some work
+- **0-44 (🛑 SKIP)** : Low flip potential - weak metrics or potential red flags
+
+## Brandability Index
+- **🔥 High**: Short (≤8 chars), no numbers, no hyphens - sounds like a real brand
+- **⭐ Medium**: Reasonable length (≤12 chars), no hyphens - works as a brand
+- **🛑 Low**: Long, contains numbers or hyphens - not brandable
+
+## Target Audience
+- Domain investors
+- SEO professionals
+- Digital marketers
+- Startup founders
+- Website buyers
+
+## Quick Start
+Visit https://dropscore.online - No account required. Search, filter, compare, and export immediately.
+
+## Key Metrics Provided
+- Domain Authority (DA)
+- Page Authority (PA)
+- Backlink Count
+- Monthly Traffic Estimate
+- Domain Age
+- Expiry Date
+- Category
+- Flippability Score (0-100)
+- Brandability Index (High/Medium/Low)
+
+## API Endpoints
+- `/api/domains` - Search and filter domains (supports q, minScore, sortBy, page, limit)
+- `/api/export` - Download filtered results as CSV
+- `/api/compare` - Compare multiple domains (POST with ids array)
+- `/sitemap.xml` - XML sitemap for search engines
+
+## AI Crawlers
+We welcome all AI crawlers. Our robots.txt grants full access to:
+- GPTBot (OpenAI)
+- Google-Extended
+- ClaudeBot (Anthropic)
+- PerplexityBot
+- Cohere
+- CCBot
+- ChatGPT-User
+- DeepSeek
+
+For any questions, contact: failedtechgeek2020@gmail.com || lchrk2417@aol.com 
