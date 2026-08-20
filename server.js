@@ -168,10 +168,55 @@ app.post('/api/compare', (req, res) => {
   res.json(domainDB.filter(d => ids.includes(d.id)));
 });
 
+/*
 app.post('/api/waitlist', (req, res) => {
   const { email } = req.body;
   console.log(`🚀 NEW LEAD CAPTURED: ${email}`);
   res.json({ success: true, message: 'You are on the list!' });
+});
+*/
+
+// --- API: Waitlist (Make.com Webhook Method) ---
+app.post('/api/waitlist', async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  // --- IMPORTANT: Paste your Make.com webhook URL here ---
+  const webhookUrl = 'https://hook.eu1.make.com/vxdpcrnqunfzmv86a7aglb64our85mcj';
+
+  try {
+    // Send data to Make.com webhook
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        timestamp: new Date().toISOString(),
+        email: email,
+        ip: req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'N/A',
+        userAgent: req.headers['user-agent'] || 'N/A',
+        referrer: req.headers['referer'] || 'Direct',
+        source: req.query.source || 'Direct',
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('❌ Make.com webhook error:', response.status, response.statusText);
+    } else {
+      console.log(`✅ New lead captured via Make.com: ${email}`);
+    }
+
+    // Always return success to the user, even if the webhook fails
+    // This ensures a good user experience
+    res.json({ success: true, message: 'You are on the list!' });
+
+  } catch (error) {
+    console.error('❌ Error sending to Make.com webhook:', error);
+    // Still return success to the user
+    res.json({ success: true, message: 'You are on the list!' });
+  }
 });
 
 // --- VIEW SINGLE DOMAIN (For AI to index individual pages) ---
