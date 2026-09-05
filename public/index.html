@@ -153,6 +153,61 @@
     .card-hover:hover { transform: translateY(-4px); transition: all 0.2s ease; }
     #compare-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; display: none; }
     .theme-toggle { cursor: pointer; font-size: 1.25rem; }
+    /* --- Modal Animations --- */
+#liveDataModal {
+  transition: opacity 0.3s ease;
+}
+#liveDataModalCard {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#liveDataModal:not(.hidden) #liveDataModalCard {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* --- Domain Data Grid --- */
+.domain-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1.5rem;
+  width: 100%;
+}
+.domain-data-item {
+  display: flex;
+  flex-direction: column;
+}
+.domain-data-item .label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+  font-weight: 600;
+}
+.domain-data-item .value {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1f2937;
+  word-break: break-all;
+}
+.dark .domain-data-item .value {
+  color: #e5e7eb;
+}
+
+/* --- Status Badges --- */
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.status-badge.success { background: #d1fae5; color: #065f46; }
+.status-badge.error { background: #fee2e2; color: #991b1b; }
+.status-badge.warning { background: #fef3c7; color: #92400e; }
+.dark .status-badge.success { background: #064e3b; color: #a7f3d0; }
+.dark .status-badge.error { background: #7f1d1d; color: #fca5a5; }
+.dark .status-badge.warning { background: #78350f; color: #fcd34d; }
   </style>
   <!--Tracemyip tracker-->
   <!-- Start: Copyright 2026 TraceMyIP.org Service Code (020724-08202026)- DO NOT MODIFY //-->
@@ -280,6 +335,37 @@
     Pilot MVP for marketing validation. All data is simulated to demonstrate the DropScore AI Engine.
   </footer>
 
+  <!-- ============================================ -->
+<!-- 🎨 LIVE DOMAIN DATA MODAL (Closable UI)      -->
+<!-- ============================================ -->
+<div id="liveDataModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transform transition-all duration-300 scale-95 opacity-0" id="liveDataModalCard">
+    
+    <!-- Header -->
+    <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 id="modalTitle" class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+        <span id="modalIcon">🔍</span> <span id="modalTitleText">Checking Domain...</span>
+      </h3>
+      <button id="closeLiveDataModal" class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl transition">&times;</button>
+    </div>
+
+    <!-- Body -->
+    <div id="modalBody" class="px-6 py-5 text-gray-700 dark:text-gray-300 min-h-[120px] flex items-center justify-center">
+      <div class="flex flex-col items-center gap-3 w-full">
+        <div id="modalSpinner" class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p id="modalMessage" class="text-center">Fetching live WHOIS data...</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+      <button id="modalCloseBtn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition shadow-sm">
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+
   <script>
     // --- THEME TOGGLE ---
     const htmlEl = document.documentElement;
@@ -328,7 +414,7 @@
     const exportBtn = document.getElementById('exportBtn');
 
     // --- NEW: Fetch Live Domain Data ---
-    async function fetchLiveData(domainId) {
+    /*async function fetchLiveData(domainId) {
       // Find the domain object from the current list using its ID
       const domain = currentDomains.find(d => d.id === domainId);
       if (!domain) {
@@ -369,9 +455,150 @@
         alert('❌ An error occurred while fetching live data. Please try again.');
       }
     }
+    */
+    // --- UPDATED: Fetch Live Domain Data with Beautiful Modal ---
+    async function fetchLiveData(domainId) {
+      const domain = currentDomains.find(d => d.id === domainId);
+      if (!domain) {
+        showModal('error', 'Domain not found.', 'The domain you selected could not be located.');
+        return;
+      }
+
+      const fullDomain = `${domain.domain}${domain.tld}`;
+      
+      // Show loading state
+      showModal('loading', `Checking ${fullDomain}...`, 'Contacting WHOIS servers...');
+
+      try {
+        const response = await fetch(`/api/domain-whois?domain=${fullDomain}`);
+        const data = await response.json();
+
+        if (response.ok && data && !data.error) {
+          // Success! Show the live data
+          const statusBadge = data.status && data.status !== 'N/A' 
+            ? `<span class="status-badge success">Active</span>` 
+            : `<span class="status-badge warning">Unknown</span>`;
+
+          const htmlContent = `
+            <div class="domain-data-grid">
+              <div class="domain-data-item">
+                <span class="label">Domain</span>
+                <span class="value font-mono text-blue-600 dark:text-blue-400">${fullDomain}</span>
+              </div>
+              <div class="domain-data-item">
+                <span class="label">Status</span>
+                <span class="value">${statusBadge}</span>
+              </div>
+              <div class="domain-data-item">
+                <span class="label">Registrar</span>
+                <span class="value">${data.registrar || 'N/A'}</span>
+              </div>
+              <div class="domain-data-item">
+                <span class="label">Creation Date</span>
+                <span class="value">${data.creationDate ? new Date(data.creationDate).toLocaleDateString() : 'N/A'}</span>
+              </div>
+              <div class="domain-data-item">
+                <span class="label">Expiration Date</span>
+                <span class="value">${data.expiryDate ? new Date(data.expiryDate).toLocaleDateString() : 'N/A'}</span>
+              </div>
+              <div class="domain-data-item">
+                <span class="label">Nameservers</span>
+                <span class="value text-xs font-mono">${data.nameservers || 'N/A'}</span>
+              </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-3 text-center">Data fetched from RDAP (Real-Time WHOIS)</p>
+          `;
+          showModal('success', `✅ Live Data for ${fullDomain}`, htmlContent, true);
+
+        } else {
+          // Domain not found or API error
+          showModal('error', `🔍 Domain Not Available`, 
+            `We couldn't find WHOIS records for <strong>${fullDomain}</strong>.<br><br>
+            This usually means the domain is <strong>not registered</strong> or <strong>not yet active</strong>.<br><br>
+            <span class="text-xs text-gray-400">💡 Tip: Try a real domain like "google.com" or "microsoft.com" to see this feature work!</span>`
+          );
+        }
+
+      } catch (error) {
+        console.error('Error fetching live data:', error);
+        showModal('error', '⚠️ Connection Error', 
+          'Failed to connect to the WHOIS service. Please try again later.'
+        );
+      }
+    }
+
+// --- Helper: Show/Hide Modal with Different States ---
+function showModal(state, title, message, isHtml = false) {
+  const modal = document.getElementById('liveDataModal');
+  const card = document.getElementById('liveDataModalCard');
+  const titleText = document.getElementById('modalTitleText');
+  const icon = document.getElementById('modalIcon');
+  const body = document.getElementById('modalBody');
+  const spinner = document.getElementById('modalSpinner');
+  const msgContainer = document.getElementById('modalMessage');
+
+  // Show the modal
+  modal.classList.remove('hidden');
+  // Force reflow for animation
+  void card.offsetWidth;
+
+  // Set content based on state
+  if (state === 'loading') {
+    icon.textContent = '⏳';
+    titleText.textContent = title;
+    spinner.classList.remove('hidden');
+    msgContainer.innerHTML = message;
+    msgContainer.className = 'text-center text-gray-500 dark:text-gray-400';
+  } else {
+    spinner.classList.add('hidden');
+    titleText.textContent = title;
+    
+    if (state === 'success') {
+      icon.textContent = '✅';
+      if (isHtml) {
+        msgContainer.innerHTML = message;
+      } else {
+        msgContainer.textContent = message;
+      }
+      msgContainer.className = 'w-full';
+    } else {
+      icon.textContent = '❌';
+      if (isHtml) {
+        msgContainer.innerHTML = message;
+      } else {
+        msgContainer.textContent = message;
+      }
+      msgContainer.className = 'text-center text-red-600 dark:text-red-400';
+    }
+  }
+}
+
+// --- Modal Close Handlers ---
+function closeLiveDataModal() {
+  const modal = document.getElementById('liveDataModal');
+  modal.classList.add('hidden');
+}
+
+// Close on button click
+document.getElementById('closeLiveDataModal').addEventListener('click', closeLiveDataModal);
+document.getElementById('modalCloseBtn').addEventListener('click', closeLiveDataModal);
+
+// Close on outside click (clicking the backdrop)
+document.getElementById('liveDataModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('liveDataModal')) {
+    closeLiveDataModal();
+  }
+});
+
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeLiveDataModal();
+  }
+});
     // --- FETCH DOMAINS ---
     async function fetchDomains(page = 1) {
-      
+
       loading.classList.remove('hidden');
       const q = searchInput.value;
       
