@@ -371,7 +371,21 @@
     }
     // --- FETCH DOMAINS ---
     async function fetchDomains(page = 1) {
+      
       loading.classList.remove('hidden');
+      const q = searchInput.value;
+      
+      // Call your new backend endpoint
+      const res = await fetch(`/api/real-domains?q=${q}`);
+      const data = await res.json();
+      
+      currentDomains = data.domains || [];
+      loading.classList.add('hidden');
+
+      // Use the same renderDomains function you already have
+      renderDomains(data);
+
+      /*loading.classList.remove('hidden');
       const q = searchInput.value;
       const minScore = scoreFilter.value;
       const sortBy = sortSelect.value;
@@ -379,7 +393,7 @@
       const data = await res.json();
       currentDomains = data.domains;
       loading.classList.add('hidden');
-      renderDomains(data);
+      renderDomains(data);*/
     }
 
     // --- RENDER CARDS ---
