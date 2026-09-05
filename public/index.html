@@ -327,6 +327,48 @@
     const modalTable = document.getElementById('comparisonTable');
     const exportBtn = document.getElementById('exportBtn');
 
+    // --- NEW: Fetch Live Domain Data ---
+    async function fetchLiveData(domainId) {
+      // Find the domain object from the current list using its ID
+      const domain = currentDomains.find(d => d.id === domainId);
+      if (!domain) {
+        alert('Domain not found.');
+        return;
+      }
+
+      // Construct the full domain name (e.g., "example.com")
+      const fullDomain = `${domain.domain}${domain.tld}`;
+
+      // Show a loading message to the user
+      alert(`🔍 Fetching live data for ${fullDomain}...`);
+
+      try {
+        // Call your backend API
+        const response = await fetch(`/api/live-domain-data?domain=${fullDomain}`);
+        const data = await response.json();
+
+        if (response.ok) {
+          // Success! Display the live data in a readable format
+          // The API returns data like: { registrar, created_date, expires_date, nameservers, ... }
+          const message = `
+    📍 Live Data for ${fullDomain}:
+    -----------------------------------
+    📅 Created: ${data.created_date || 'N/A'}
+    ⏳ Expires: ${data.expires_date || 'N/A'}
+    🏢 Registrar: ${data.registrar || 'N/A'}
+    🌐 Nameservers: ${data.nameservers ? data.nameservers.join(', ') : 'N/A'}
+    📌 Status: ${data.status || 'N/A'}
+          `;
+          alert(message);
+        } else {
+          // Handle errors from the API (e.g., domain not found)
+          alert(`❌ Could not fetch live data for ${fullDomain}. The domain may not exist.`);
+        }
+      } catch (error) {
+        console.error('Error fetching live data:', error);
+        alert('❌ An error occurred while fetching live data. Please try again.');
+      }
+    }
     // --- FETCH DOMAINS ---
     async function fetchDomains(page = 1) {
       loading.classList.remove('hidden');
@@ -376,6 +418,9 @@
               <div class="flex gap-2">
                 <button onclick="toggleCompare(${d.id})" class="text-xs ${isInCompare ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} hover:bg-purple-700 hover:text-white px-3 py-1 rounded-full transition">
                   ${isInCompare ? 'Remove' : 'Compare'}
+                </button>
+                <button onclick="fetchLiveData(${d.id})" class="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-full font-semibold transition">
+                    Check Live Status 🔄
                 </button>
                 <a href="https://www.namecheap.com/domains/registration/results/?domain=${d.domain}${d.tld}" target="_blank" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full font-semibold transition">
                   Check Price 🛒

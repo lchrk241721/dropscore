@@ -227,6 +227,38 @@ app.get('/domain/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// --- NEW: Fetch Live Domain Data from Domain Details API ---
+app.get('/api/live-domain-data', async (req, res) => {
+  const { domain } = req.query;
+
+  // 1. Validate the input: make sure a domain name was provided
+  if (!domain) {
+    return res.status(400).json({ error: 'Domain name is required.' });
+  }
+
+  try {
+    // 2. Call the free Domain Details API (no API key needed!)
+    const response = await fetch(`https://mcp.domaindetails.com/lookup/${domain}`);
+
+    // 3. Check if the API request was successful
+    if (!response.ok) {
+      // If the domain doesn't exist or the API fails, return a 404 error
+      return res.status(404).json({ error: 'Domain not found or API error.' });
+    }
+
+    // 4. Parse the JSON response from the API
+    const data = await response.json();
+
+    // 5. Send the live data back to your frontend
+    res.json(data);
+
+  } catch (error) {
+    // 6. Handle any unexpected server errors
+    console.error('Error fetching live domain data:', error);
+    res.status(500).json({ error: 'Failed to fetch live domain data.' });
+  }
+});
+
 // Serve frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
