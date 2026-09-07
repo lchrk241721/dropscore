@@ -237,6 +237,9 @@
       <button id="themeToggle" class="theme-toggle text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
         <i id="themeIcon" class="fas fa-moon"></i>
       </button>
+      <button id="toggleAdminBtn" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium">
+        <i class="fas fa-cog"></i>
+      </button>
       <span class="hidden md:inline text-sm text-gray-500 dark:text-gray-400">
         <i class="fas fa-robot mr-1 text-blue-500"></i> AI Score
       </span>
@@ -297,29 +300,33 @@
     </div>
 
     <!-- FETCH BUTTON & STATUS -->
-    <div class="glass rounded-2xl p-5 mb-6 shadow-sm">
-      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="glass rounded-2xl p-5 mb-6 shadow-sm">
+    <div class="flex flex-col md:flex-row items-center gap-4">
         <div class="flex-1">
-          <div id="fetchStatus" class="text-sm text-gray-600 dark:text-gray-400">
-            <i class="fas fa-info-circle mr-1 text-blue-500"></i> 
-            Click "Fetch Live Data" to get real expired domains.
-          </div>
-          <div id="cooldownTimer" class="text-xs text-gray-500 dark:text-gray-500 mt-1 hidden"></div>
+            <div id="fetchStatus" class="text-sm text-gray-600 dark:text-gray-400">
+                <i class="fas fa-info-circle mr-1 text-blue-500"></i> 
+                Select a date and click "Fetch Live Data" to get real expiring domains.
+            </div>
+            <div id="cooldownTimer" class="text-xs text-gray-500 dark:text-gray-500 mt-1 hidden"></div>
         </div>
-        <button id="fetchBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-4 rounded-xl transition shadow-lg pulse-glow flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:animate-none">
-          <i id="fetchIcon" class="fas fa-cloud-download-alt"></i>
-          <span id="fetchBtnText">Fetch Live Data</span>
-        </button>
-      </div>
-      
-      <!-- Progress Bar -->
-      <div id="fetchProgress" class="mt-4 hidden">
+        <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <input type="date" id="datePicker" 
+                   class="px-4 py-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto" />
+            <button id="fetchBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-4 rounded-xl transition shadow-lg pulse-glow flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:animate-none whitespace-nowrap">
+                <i id="fetchIcon" class="fas fa-cloud-download-alt"></i>
+                <span id="fetchBtnText">Fetch Live Data</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Progress Bar -->
+    <div id="fetchProgress" class="mt-4 hidden">
         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-          <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
         </div>
         <p id="progressText" class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">Connecting to WHOIS servers...</p>
-      </div>
     </div>
+</div>
 
     <!-- SEARCH & FILTERS (Visible when domains are loaded) -->
     <div id="filterSection" class="hidden mb-6">
@@ -366,6 +373,41 @@
     </div>
 
   </main>
+  <!-- ============================================ -->
+<!-- 🛠️ ADMIN PANEL (Hidden by default)           -->
+<!-- ============================================ -->
+<div id="adminPanel" class="max-w-7xl mx-auto px-4 mt-8 hidden">
+    <div class="glass rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fas fa-cog text-blue-600 dark:text-blue-400"></i> Admin Settings
+            </h3>
+            <button id="toggleAdminPanel" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label for="apiKeyInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    WhoisFreaks API Key
+                </label>
+                <div class="flex gap-3">
+                    <input type="password" id="apiKeyInput" placeholder="Enter your WhoisFreaks API key" 
+                           class="flex-1 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <button id="saveApiKeyBtn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition">
+                        Save Key
+                    </button>
+                </div>
+                <p id="apiKeyStatus" class="text-xs text-gray-500 dark:text-gray-400 mt-1"></p>
+            </div>
+            <div class="text-xs text-gray-500 dark:text-gray-400">
+                <i class="fas fa-info-circle mr-1"></i>
+                Get your API key from the <a href="https://whoisfreaks.com" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">WhoisFreaks billing dashboard</a>.
+            </div>
+        </div>
+    </div>
+</div>
+
 
   <!-- COMPARE FLOATING BAR -->
   <div id="compare-bar" class="glass p-4 flex justify-between items-center shadow-2xl">
@@ -974,12 +1016,187 @@
       }
     });
 
+    // --- ADMIN PANEL TOGGLE ---
+const adminPanel = document.getElementById('adminPanel');
+const toggleAdminBtn = document.getElementById('toggleAdminBtn');
+const toggleAdminPanelBtn = document.getElementById('toggleAdminPanel');
+
+toggleAdminBtn.addEventListener('click', () => {
+    adminPanel.classList.toggle('hidden');
+});
+
+toggleAdminPanelBtn.addEventListener('click', () => {
+    adminPanel.classList.add('hidden');
+});
+
+// --- API KEY MANAGEMENT ---
+const apiKeyInput = document.getElementById('apiKeyInput');
+const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+const apiKeyStatus = document.getElementById('apiKeyStatus');
+
+// Check if API key is already set
+async function checkApiKeyStatus() {
+    try {
+        const response = await fetch('/api/admin/api-key-status');
+        const data = await response.json();
+        if (data.isSet) {
+            apiKeyStatus.textContent = '✅ API key is configured.';
+            apiKeyStatus.className = 'text-xs text-green-500 dark:text-green-400 mt-1';
+        } else {
+            apiKeyStatus.textContent = '⚠️ API key not set. Please add your WhoisFreaks API key.';
+            apiKeyStatus.className = 'text-xs text-yellow-500 dark:text-yellow-400 mt-1';
+        }
+    } catch (error) {
+        console.error('Error checking API key status:', error);
+    }
+}
+
+saveApiKeyBtn.addEventListener('click', async () => {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+        apiKeyStatus.textContent = '❌ Please enter an API key.';
+        apiKeyStatus.className = 'text-xs text-red-500 dark:text-red-400 mt-1';
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/admin/set-api-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            apiKeyStatus.textContent = '✅ API key saved successfully!';
+            apiKeyStatus.className = 'text-xs text-green-500 dark:text-green-400 mt-1';
+            apiKeyInput.value = '';
+            checkApiKeyStatus();
+        } else {
+            apiKeyStatus.textContent = `❌ Error: ${data.error || 'Unknown error'}`;
+            apiKeyStatus.className = 'text-xs text-red-500 dark:text-red-400 mt-1';
+        }
+    } catch (error) {
+        console.error('Error saving API key:', error);
+        apiKeyStatus.textContent = '❌ Failed to save API key. Please try again.';
+        apiKeyStatus.className = 'text-xs text-red-500 dark:text-red-400 mt-1';
+    }
+});
+
+// --- UPDATED FETCH FUNCTION ---
+async function fetchLiveDomains() {
+    if (isFetching) return;
+    
+    if (getCooldownRemaining() > 0) {
+        updateCooldownUI();
+        return;
+    }
+
+    // Get the selected date
+    const datePicker = document.getElementById('datePicker');
+    const selectedDate = datePicker.value;
+
+    if (!selectedDate) {
+        alert('Please select a date first.');
+        return;
+    }
+
+    isFetching = true;
+    fetchBtn.disabled = true;
+    fetchBtnText.textContent = 'Fetching...';
+    fetchIcon.className = 'fas fa-spinner fa-spin';
+    
+    fetchProgress.classList.remove('hidden');
+    progressBar.style.width = '0%';
+    progressText.textContent = 'Connecting to WhoisFreaks API...';
+    fetchStatus.innerHTML = `<i class="fas fa-spinner fa-spin mr-1 text-blue-500"></i> Fetching expiring domains for ${selectedDate}...`;
+
+    try {
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress > 90) progress = 90;
+            progressBar.style.width = `${Math.min(progress, 90)}%`;
+            if (progress < 30) progressText.textContent = 'Contacting WhoisFreaks API...';
+            else if (progress < 60) progressText.textContent = 'Downloading CSV data...';
+            else if (progress < 85) progressText.textContent = 'Processing domain data...';
+        }, 300);
+
+        // Call the new endpoint with the date parameter
+        const response = await fetch(`/api/fetch-expiring-domains?date=${selectedDate}`);
+        const data = await response.json();
+
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        progressText.textContent = '✅ Done!';
+
+        if (data.success && data.domains && data.domains.length > 0) {
+            localStorage.setItem('dropscore_domains', JSON.stringify(data.domains));
+            localStorage.setItem('dropscore_fetch_time', Date.now().toString());
+            setLastFetchTime();
+            
+            currentDomains = data.domains;
+            filteredDomains = [...currentDomains];
+            renderDomains(filteredDomains);
+            
+            filterSection.classList.remove('hidden');
+            exportBtn.disabled = false;
+            
+            fetchStatus.innerHTML = `<i class="fas fa-check-circle mr-1 text-green-500"></i> ✅ Fetched <strong>${data.domains.length}</strong> expiring domains for ${selectedDate}!`;
+            fetchBtnText.textContent = 'Fetched!';
+            fetchIcon.className = 'fas fa-check-circle';
+            
+            setTimeout(() => updateCooldownUI(), 2000);
+            
+        } else if (data.success && data.domains && data.domains.length === 0) {
+            fetchStatus.innerHTML = `<i class="fas fa-info-circle mr-1 text-blue-500"></i> No expiring domains found for ${selectedDate}. Try another date.`;
+            fetchBtnText.textContent = 'Try Again';
+            fetchIcon.className = 'fas fa-info-circle';
+        } else {
+            // Handle API error
+            const errorMsg = data.error || 'Unknown error occurred.';
+            fetchStatus.innerHTML = `<i class="fas fa-exclamation-circle mr-1 text-red-500"></i> ❌ ${errorMsg}`;
+            fetchBtnText.textContent = 'Try Again';
+            fetchIcon.className = 'fas fa-exclamation-circle';
+            progressText.textContent = '❌ Error occurred';
+        }
+
+    } catch (error) {
+        console.error('Fetch error:', error);
+        fetchStatus.innerHTML = `<i class="fas fa-exclamation-circle mr-1 text-red-500"></i> ❌ Failed to fetch. Please try again.`;
+        fetchBtnText.textContent = 'Retry';
+        fetchIcon.className = 'fas fa-exclamation-circle';
+        progressText.textContent = '❌ Error occurred';
+    }
+
+    setTimeout(() => {
+        isFetching = false;
+        progressBar.style.width = '0%';
+        fetchProgress.classList.add('hidden');
+        if (!fetchBtn.disabled) {
+            fetchBtnText.textContent = 'Fetch Live Data';
+            fetchIcon.className = 'fas fa-cloud-download-alt';
+        }
+        updateCooldownUI();
+    }, 1500);
+}
+
+// --- SET DEFAULT DATE ---
+const datePicker = document.getElementById('datePicker');
+const today = new Date();
+const year = today.getFullYear();
+const month = String(today.getMonth() + 1).padStart(2, '0');
+const day = String(today.getDate()).padStart(2, '0');
+datePicker.value = `${year}-${month}-${day}`;
+
     // --- EVENT LISTENERS ---
     fetchBtn.addEventListener('click', fetchLiveDomains);
     searchInput.addEventListener('input', applyFilters);
     sortSelect.addEventListener('change', applyFilters);
 
     // --- INIT ---
+    checkApiKeyStatus();
     loadStoredDomains();
   </script>
 
