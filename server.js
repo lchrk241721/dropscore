@@ -227,6 +227,7 @@ app.get('/domain/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+
 // --- RDAP WHOIS Endpoint ---
 app.get('/api/domain-whois', async (req, res) => {
   const { domain } = req.query;
