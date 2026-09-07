@@ -56,7 +56,7 @@ app.get('/api/admin/api-key-status', (req, res) => {
 // ============================================
 // FETCH EXPIRING DOMAINS FROM WHOISFREAKS CSV FEED
 // ============================================
-app.get('/api/fetch-expiring-domains', async (req, res) => {
+/*app.get('/api/fetch-expiring-domains', async (req, res) => {
     const { date } = req.query;
 
     // 1. Check if the API key is set
@@ -150,6 +150,120 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
             userMessage = 'Invalid request. The date may be too old or incorrectly formatted.';
         } else if (error.message.includes('413')) {
             userMessage = 'Download limit exceeded. Please upgrade your plan.';
+        } else if (error.name === 'AbortError') {
+            userMessage = 'Request timed out. Please try again.';
+        }
+
+        res.status(500).json({
+            success: false,
+            error: userMessage,
+            details: error.message
+        });
+    }
+});*/
+
+// ============================================
+// FETCH EXPIRING DOMAINS FROM WHOISFREAKS (CORRECTED)
+// ============================================
+app.get('/api/fetch-expiring-domains', async (req, res) => {
+    const { date } = req.query;
+
+    // 1. Check if the API key is set
+    if (!whoisFreaksApiKey) {
+        return res.status(400).json({
+            success: false,
+            error: 'API key not configured. Please contact the administrator.'
+        });
+    }
+
+    // 2. Validate the date parameter (optional - WhoisFreaks accepts it as yyyy-MM-dd)
+    let formattedDate = '';
+    if (date) {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(date)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid date format. Please use YYYY-MM-DD.'
+            });
+        }
+        formattedDate = date;
+    }
+
+    try {
+        // 3. Build the CORRECT WhoisFreaks API URL
+        // Base URL: https://api.whoisfreaks.com
+        // Endpoint: /v3.1/download/domainer/expired
+        // Parameters: apiKey (required), whois (boolean, default true), date (optional, yyyy-MM-dd)
+        let apiUrl = `https://api.whoisfreaks.com/v3.1/download/domainer/expired/cleaned?apiKey=${whoisFreaksApiKey}&whois=true`;
+        
+        // Add date parameter if provided
+        if (formattedDate) {
+            apiUrl += `&date=${formattedDate}`;
+        }
+
+        console.log(`📡 Fetching expiring domains from: ${apiUrl}`);
+
+        // 4. Fetch the CSV data from WhoisFreaks
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+        const response = await fetch(apiUrl, {
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        // 5. Handle non-200 responses
+        if (!response.ok) {
+            let errorMessage = `WHOIS API returned ${response.status}`;
+            
+            // Parse error codes from documentation[reference:3]
+            if (response.status === 400) {
+                errorMessage = 'The provided date is too old. Please select a more recent date.';
+            } else if (response.status === 401) {
+                errorMessage = 'Invalid or inactive API key. Please check your API key or upgrade your plan.';
+            } else if (response.status === 404) {
+                errorMessage = 'No data available for the selected date. Please try another date.';
+            } else if (response.status === 413) {
+                errorMessage = 'Download limit exceeded (max 20,000 domains). Please upgrade your plan.';
+            }
+            
+            throw new Error(errorMessage);
+        }
+
+        // 6. Get the CSV text from the response
+        const csvText = await response.text();
+
+        // 7. Parse the CSV data
+        const domains = parseCsvToDomains(csvText);
+
+        if (domains.length === 0) {
+            return res.json({
+                success: true,
+                count: 0,
+                domains: [],
+                fetchedAt: new Date().toISOString(),
+                message: 'No expiring domains found for the selected date.'
+            });
+        }
+
+        // 8. Send the parsed domains back to the frontend
+        res.json({
+            success: true,
+            count: domains.length,
+            domains: domains,
+            fetchedAt: new Date().toISOString(),
+            message: `Successfully fetched ${domains.length} expiring domains${formattedDate ? ' for ' + formattedDate : ''}`
+        });
+
+    } catch (error) {
+        console.error('Error fetching expiring domains:', error.message);
+
+        let userMessage = 'Failed to fetch expiring domains.';
+        if (error.message.includes('API key')) {
+            userMessage = error.message;
+        } else if (error.message.includes('date')) {
+            userMessage = error.message;
         } else if (error.name === 'AbortError') {
             userMessage = 'Request timed out. Please try again.';
         }
