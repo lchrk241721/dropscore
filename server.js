@@ -227,6 +227,40 @@ app.get('/domain/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// --- RDAP WHOIS Endpoint ---
+app.get('/api/domain-whois', async (req, res) => {
+  const { domain } = req.query;
+  
+  if (!domain) {
+    return res.status(400).json({ error: 'Domain name required' });
+  }
+
+  try {
+    const response = await fetch(`https://rdap.org/domain/${domain}`);
+    
+    if (!response.ok) {
+      return res.status(404).json({ error: 'Domain not found' });
+    }
+
+    const data = await response.json();
+    
+    const result = {
+      domain: domain,
+      creationDate: data.events?.find(e => e.eventAction === 'registration')?.eventDate || 'N/A',
+      expiryDate: data.events?.find(e => e.eventAction === 'expiration')?.eventDate || 'N/A',
+      registrar: data.entities?.find(e => e.roles?.includes('registrar'))?.vcardArray?.[1]?.[1]?.[3] || 'N/A',
+      nameservers: data.nameservers?.map(ns => ns.ldhName).join(', ') || 'N/A',
+      status: data.status?.join(', ') || 'N/A'
+    };
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('RDAP error:', error);
+    res.status(500).json({ error: 'Failed to fetch WHOIS data' });
+  }
+});
+
 // --- NEW: Fetch Live Domain Data from Domain Details API ---
 app.get('/api/live-domain-data', async (req, res) => {
   const { domain } = req.query;
