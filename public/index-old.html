@@ -97,14 +97,14 @@
           {
             "@type": "HowToStep",
             "position": "1",
-            "name": "Click Fetch Live Data",
-            "text": "Click the 'Fetch Live Data' button to retrieve the most recent expired domains."
+            "name": "Search for a keyword or niche",
+            "text": "Enter any niche keyword like 'AI', 'finance', or 'health' to find relevant expired domains."
           },
           {
             "@type": "HowToStep",
             "position": "2",
-            "name": "Filter by keyword or sort",
-            "text": "Search by keyword or sort by Flippability Score, DA, or Traffic to find your best candidates."
+            "name": "Filter by Flippability Score",
+            "text": "Use the slider to set a minimum Flippability Score. Higher scores (70+) indicate domains with strong flip potential."
           },
           {
             "@type": "HowToStep",
@@ -128,7 +128,7 @@
       {
         "@type": "Dataset",
         "name": "Expired Domain Metrics Database",
-        "description": "A dataset of expired domains with SEO metrics including DA, PA, backlinks, traffic estimates, and proprietary Flippability Scores.",
+        "description": "A dataset of 500+ expired domains with SEO metrics including DA, PA, backlinks, traffic estimates, and proprietary Flippability Scores.",
         "url": "https://dropscore.online/api/domains",
         "distribution": {
           "@type": "DataDownload",
@@ -291,8 +291,8 @@
         Fetch Live <span class="text-blue-600 dark:text-blue-400">Expiring Domains</span>
       </h2>
       <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">
-        Click the button below to fetch <strong>real expiring domains</strong> from DomainsDB.<br>
-        <span class="text-xs text-gray-500">🔍 Search & filter your results • ⚡ Unlimited fetches</span>
+        Click the button below to fetch <strong>real expiring domains.</strong><br>
+        <span class="text-xs text-gray-500">⏳ 1 fetch per 24 hours • 🔍 Search & filter your results</span>
       </p>
     </div>
 
@@ -304,6 +304,7 @@
             <i class="fas fa-info-circle mr-1 text-blue-500"></i> 
             Click "Fetch Live Data" to get real expiring domains.
           </div>
+          <div id="cooldownTimer" class="text-xs text-gray-500 dark:text-gray-500 mt-1 hidden"></div>
         </div>
         <button id="fetchBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-4 rounded-xl transition shadow-lg pulse-glow flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:animate-none whitespace-nowrap">
           <i id="fetchIcon" class="fas fa-cloud-download-alt"></i>
@@ -316,7 +317,7 @@
         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
           <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
         </div>
-        <p id="progressText" class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">Connecting to DomainsDB API...</p>
+        <p id="progressText" class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">Connecting to WhoisFreaks API...</p>
       </div>
     </div>
 
@@ -417,7 +418,7 @@
   </div>
 
   <footer class="text-center text-[10px] text-gray-400 dark:text-gray-600 py-8 border-t border-gray-200 dark:border-gray-800 mt-8">
-    ⚡ DropScore • Real-time expired domain data • Unlimited fetches
+    ⚡ DropScore • Fetch real expiring domains from WhoisFreaks • 1 fetch per 24 hours
   </footer>
 
   <script>
@@ -445,11 +446,80 @@
       }
     });
 
+    // --- ADMIN PANEL TOGGLE ---
+    const adminPanel = document.getElementById('adminPanel');
+    const toggleAdminBtn = document.getElementById('toggleAdminBtn');
+    const toggleAdminPanelBtn = document.getElementById('toggleAdminPanel');
+
+    toggleAdminBtn.addEventListener('click', () => {
+      adminPanel.classList.toggle('hidden');
+    });
+
+    toggleAdminPanelBtn.addEventListener('click', () => {
+      adminPanel.classList.add('hidden');
+    });
+
+    // --- API KEY MANAGEMENT ---
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+    const apiKeyStatus = document.getElementById('apiKeyStatus');
+
+    async function checkApiKeyStatus() {
+      try {
+        const response = await fetch('/api/admin/api-key-status');
+        const data = await response.json();
+        if (data.isSet) {
+          apiKeyStatus.textContent = '✅ API key is configured.';
+          apiKeyStatus.className = 'text-xs text-green-500 dark:text-green-400 mt-1';
+        } else {
+          apiKeyStatus.textContent = '⚠️ API key not set. Please add your WhoisFreaks API key.';
+          apiKeyStatus.className = 'text-xs text-yellow-500 dark:text-yellow-400 mt-1';
+        }
+      } catch (error) {
+        console.error('Error checking API key status:', error);
+      }
+    }
+
+    saveApiKeyBtn.addEventListener('click', async () => {
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) {
+        apiKeyStatus.textContent = '❌ Please enter an API key.';
+        apiKeyStatus.className = 'text-xs text-red-500 dark:text-red-400 mt-1';
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/set-api-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          apiKeyStatus.textContent = '✅ API key saved successfully!';
+          apiKeyStatus.className = 'text-xs text-green-500 dark:text-green-400 mt-1';
+          apiKeyInput.value = '';
+          checkApiKeyStatus();
+        } else {
+          apiKeyStatus.textContent = `❌ Error: ${data.error || 'Unknown error'}`;
+          apiKeyStatus.className = 'text-xs text-red-500 dark:text-red-400 mt-1';
+        }
+      } catch (error) {
+        console.error('Error saving API key:', error);
+        apiKeyStatus.textContent = '❌ Failed to save API key. Please try again.';
+        apiKeyStatus.className = 'text-xs text-red-500 dark:text-red-400 mt-1';
+      }
+    });
+
     // --- STATE ---
     let currentDomains = [];
     let filteredDomains = [];
     let compareList = [];
     let isFetching = false;
+    let currentPage = 1;
+    const LIMIT = 24;
 
     // --- DOM REFS ---
     const grid = document.getElementById('domainGrid');
@@ -470,11 +540,95 @@
     const fetchProgress = document.getElementById('fetchProgress');
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
+    const cooldownTimer = document.getElementById('cooldownTimer');
     const filterSection = document.getElementById('filterSection');
 
-    // --- FETCH LIVE DATA (No Cooldown) ---
+    // --- COOLDOWN MANAGEMENT ---
+    function getLastFetchTime() {
+      return localStorage.getItem('dropscore_last_fetch');
+    }
+
+    function setLastFetchTime() {
+      localStorage.setItem('dropscore_last_fetch', Date.now().toString());
+    }
+
+    function getCooldownRemaining() {
+      const lastFetch = getLastFetchTime();
+      if (!lastFetch) return 0;
+      
+      const elapsed = Date.now() - parseInt(lastFetch);
+      const cooldownPeriod = 24 * 60 * 60 * 1000;
+      const remaining = cooldownPeriod - elapsed;
+      
+      return Math.max(0, remaining);
+    }
+
+    function formatCooldown(ms) {
+      const hours = Math.floor(ms / (60 * 60 * 1000));
+      const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+      const seconds = Math.floor((ms % (60 * 1000)) / 1000);
+      
+      if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+      if (minutes > 0) return `${minutes}m ${seconds}s`;
+      return `${seconds}s`;
+    }
+
+    function updateCooldownUI() {
+      const remaining = getCooldownRemaining();
+      
+      if (remaining > 0) {
+        fetchBtn.disabled = true;
+        fetchBtnText.textContent = 'Cooldown Active';
+        fetchIcon.className = 'fas fa-clock';
+        cooldownTimer.classList.remove('hidden');
+        cooldownTimer.innerHTML = `⏳ <strong>Next fetch available in:</strong> ${formatCooldown(remaining)}`;
+        fetchStatus.innerHTML = `<i class="fas fa-clock mr-1 text-yellow-500"></i> You've already fetched today. Come back in ${formatCooldown(remaining)}.`;
+        
+        clearInterval(window.cooldownInterval);
+        window.cooldownInterval = setInterval(() => {
+          const remainingNow = getCooldownRemaining();
+          if (remainingNow <= 0) {
+            clearInterval(window.cooldownInterval);
+            enableFetchButton();
+          } else {
+            cooldownTimer.innerHTML = `⏳ <strong>Next fetch available in:</strong> ${formatCooldown(remainingNow)}`;
+            fetchStatus.innerHTML = `<i class="fas fa-clock mr-1 text-yellow-500"></i> You've already fetched today. Come back in ${formatCooldown(remainingNow)}.`;
+          }
+        }, 1000);
+      } else {
+        enableFetchButton();
+      }
+    }
+
+    function enableFetchButton() {
+      fetchBtn.disabled = false;
+      fetchBtnText.textContent = 'Fetch Live Data';
+      fetchIcon.className = 'fas fa-cloud-download-alt';
+      cooldownTimer.classList.add('hidden');
+      
+      const storedDomains = localStorage.getItem('dropscore_domains');
+      if (storedDomains) {
+        try {
+          const data = JSON.parse(storedDomains);
+          if (data && data.length > 0) {
+            fetchStatus.innerHTML = `<i class="fas fa-check-circle mr-1 text-green-500"></i> ${data.length} domains already fetched. Click "Fetch Live Data" to refresh (1/day).`;
+          }
+        } catch (e) {}
+      } else {
+        fetchStatus.innerHTML = `<i class="fas fa-info-circle mr-1 text-blue-500"></i> Click "Fetch Live Data" to get real expiring domains.`;
+      }
+      
+      clearInterval(window.cooldownInterval);
+    }
+
+    // --- FETCH LIVE DATA (No Date Required) ---
     async function fetchLiveDomains() {
       if (isFetching) return;
+      
+      if (getCooldownRemaining() > 0) {
+        updateCooldownUI();
+        return;
+      }
 
       isFetching = true;
       fetchBtn.disabled = true;
@@ -483,7 +637,7 @@
       
       fetchProgress.classList.remove('hidden');
       progressBar.style.width = '0%';
-      progressText.textContent = 'Connecting to DomainsDB API...';
+      progressText.textContent = 'Connecting to WhoisFreaks API...';
       fetchStatus.innerHTML = `<i class="fas fa-spinner fa-spin mr-1 text-blue-500"></i> Fetching the most recent expiring domains...`;
 
       try {
@@ -492,11 +646,12 @@
           progress += Math.random() * 10;
           if (progress > 90) progress = 90;
           progressBar.style.width = `${Math.min(progress, 90)}%`;
-          if (progress < 30) progressText.textContent = 'Contacting DomainsDB API...';
-          else if (progress < 60) progressText.textContent = 'Downloading domain data...';
-          else if (progress < 85) progressText.textContent = 'Processing domain information...';
+          if (progress < 30) progressText.textContent = 'Contacting WhoisFreaks API...';
+          else if (progress < 60) progressText.textContent = 'Downloading CSV data...';
+          else if (progress < 85) progressText.textContent = 'Processing domain data...';
         }, 300);
 
+        // No date parameter - fetches the most recent data
         const response = await fetch('/api/fetch-expiring-domains');
         const data = await response.json();
 
@@ -507,6 +662,7 @@
         if (data.success && data.domains && data.domains.length > 0) {
           localStorage.setItem('dropscore_domains', JSON.stringify(data.domains));
           localStorage.setItem('dropscore_fetch_time', Date.now().toString());
+          setLastFetchTime();
           
           currentDomains = data.domains;
           filteredDomains = [...currentDomains];
@@ -516,8 +672,10 @@
           exportBtn.disabled = false;
           
           fetchStatus.innerHTML = `<i class="fas fa-check-circle mr-1 text-green-500"></i> ✅ Fetched <strong>${data.domains.length}</strong> real expiring domains!`;
-          fetchBtnText.textContent = 'Fetch Again';
-          fetchIcon.className = 'fas fa-cloud-download-alt';
+          fetchBtnText.textContent = 'Fetched!';
+          fetchIcon.className = 'fas fa-check-circle';
+          
+          setTimeout(() => updateCooldownUI(), 2000);
           
         } else if (data.success && data.domains && data.domains.length === 0) {
           fetchStatus.innerHTML = `<i class="fas fa-info-circle mr-1 text-blue-500"></i> No expiring domains found at this time. Please try again later.`;
@@ -543,9 +701,11 @@
         isFetching = false;
         progressBar.style.width = '0%';
         fetchProgress.classList.add('hidden');
-        fetchBtn.disabled = false;
-        fetchBtnText.textContent = 'Fetch Live Data';
-        fetchIcon.className = 'fas fa-cloud-download-alt';
+        if (!fetchBtn.disabled) {
+          fetchBtnText.textContent = 'Fetch Live Data';
+          fetchIcon.className = 'fas fa-cloud-download-alt';
+        }
+        updateCooldownUI();
       }, 1500);
     }
 
@@ -866,10 +1026,11 @@
             renderDomains(filteredDomains);
             filterSection.classList.remove('hidden');
             exportBtn.disabled = false;
-            fetchStatus.innerHTML = `<i class="fas fa-check-circle mr-1 text-green-500"></i> ${domains.length} domains loaded from cache. Click "Fetch Live Data" to refresh.`;
+            fetchStatus.innerHTML = `<i class="fas fa-check-circle mr-1 text-green-500"></i> ${domains.length} domains loaded from cache. Click "Fetch Live Data" to refresh (1/day).`;
           }
         } catch (e) {}
       }
+      updateCooldownUI();
     }
 
     // --- WAITLIST ---
@@ -893,6 +1054,7 @@
     sortSelect.addEventListener('change', applyFilters);
 
     // --- INIT ---
+    checkApiKeyStatus();
     loadStoredDomains();
   </script>
 
