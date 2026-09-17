@@ -713,21 +713,24 @@ async function fetchRealDA(fullDomain, domainId, buttonElement) {
     buttonElement.innerHTML = originalText;
     buttonElement.disabled = false;
 
-    // Color-code the DA score
     const daColor = data.authorityScore >= 60 ? 'text-green-600 dark:text-green-400'
                   : data.authorityScore >= 30 ? 'text-yellow-600 dark:text-yellow-400'
                   : 'text-red-600 dark:text-red-400';
+
+    const sourceBadge = data.source === 'Crawly'
+      ? '<span class="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">✓ Live from Crawly</span>'
+      : '<span class="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded">⚠ Estimated</span>';
 
     display.classList.remove('hidden');
     display.innerHTML = `
       <div class="flex flex-wrap items-center gap-3 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
         <span class="font-bold text-gray-700 dark:text-gray-300">📊 Real DA:</span>
         <span class="text-lg font-extrabold ${daColor}">${data.authorityScore}</span>
-        <span class="text-gray-500 dark:text-gray-400">
+        <span class="text-gray-500 dark:text-gray-400 text-xs">
           ${data.referringDomains > 0 ? `• ${data.referringDomains.toLocaleString()} referring domains` : ''}
           ${data.totalBacklinks > 0 ? `• ${data.totalBacklinks.toLocaleString()} backlinks` : ''}
         </span>
-        <span class="text-[10px] text-gray-400 ml-auto">via ${data.source}</span>
+        ${sourceBadge}
       </div>
     `;
 
@@ -738,6 +741,6 @@ async function fetchRealDA(fullDomain, domainId, buttonElement) {
     display.innerHTML = `<p class="text-red-500 text-xs">❌ Could not fetch DA. Try again.</p>`;
   }
 }
-  </script>
+</script>
 </body>
 </html>

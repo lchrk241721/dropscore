@@ -402,14 +402,15 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 // ============================================
-// REAL DOMAIN AUTHORITY (Crawly Free API)
+// REAL DOMAIN AUTHORITY (Crawly Free API - FIXED)
 // ============================================
 app.get('/api/domain-authority', async (req, res) => {
   const { domain } = req.query;
   if (!domain) return res.status(400).json({ error: 'Domain required' });
 
-  // If no API key configured, return estimated fallback
+  // No API key configured → fallback
   if (!CRAWLY_API_KEY) {
+    console.log('⚠️ CRAWLY_API_KEY not set, using estimated DA');
     return res.json({
       domain: domain,
       authorityScore: estimateDA(domain),
@@ -421,51 +422,77 @@ app.get('/api/domain-authority', async (req, res) => {
 
   try {
     const url = `https://www.getcrawly.com/api/v1/domain-authority?domain=${domain}`;
+    console.log(`📡 Crawly DA request for: ${domain}`);
+
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${CRAWLY_API_KEY}` },
+      headers: { 'Authorization': `Bearer ${CRAWLY_API_KEY}` },
       signal: AbortSignal.timeout(10000)
     });
 
-    if (!response.ok) throw new Error(`Crawly returned ${response.status}`);
+    console.log(`📡 Crawly response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`❌ Crawly error ${response.status}:`, errText);
+      throw new Error(`Crawly returned ${response.status}`);
+    }
 
     const data = await response.json();
+    console.log('📊 Crawly raw response:', JSON.stringify(data));
 
-    // Crawly returns: summary.referring_domains, summary.total_links, score.harmonic_score
-    // Derive a 0-100 DA-like score from the harmonic score if authority_score is absent
-    const authorityScore = data.authority_score
-      || Math.min(100, Math.round((data.score?.harmonic_score || 0) * 100))
-      || estimateDA(domain);
+    // ✅ FIX: Derive DA from harmonic_score (0-1 scale → 0-100)
+    // harmonic_score is the authoritative 0-1 metric Crawly returns.
+    const harmonicScore = data.score?.harmonic_score;
+    const referringDomains = data.summary?.referring_domains || 0;
+    const totalBacklinks = data.summary?.total_links || 0;
+
+    let authorityScore;
+
+    if (typeof harmonicScore === 'number') {
+      // Primary path: harmonic_score × 100
+      authorityScore = Math.min(100, Math.round(harmonicScore * 100));
+    } else if (referringDomains > 0) {
+      // Secondary path: derive from referring domains count
+      authorityScore = Math.min(100, Math.round(Math.log10(referringDomains + 1) * 22));
+    } else {
+      // Last resort: estimate
+      authorityScore = estimateDA(domain);
+    }
+
+    console.log(`✅ DA for ${domain}: ${authorityScore} (harmonic=${harmonicScore})`);
 
     res.json({
       domain: domain,
       authorityScore: authorityScore,
-      referringDomains: data.summary?.referring_domains || 0,
-      totalBacklinks: data.summary?.total_links || 0,
+      referringDomains: referringDomains,
+      totalBacklinks: totalBacklinks,
       harmonicRank: data.score?.harmonic_rank || null,
       pagerankRank: data.score?.pagerank_rank || null,
+      hostCount: data.score?.host_count || 0,
       source: 'Crawly'
     });
 
   } catch (error) {
-    console.error('DA check error:', error.message);
+    console.error('❌ DA check error:', error.message);
     res.json({
       domain: domain,
       authorityScore: estimateDA(domain),
       referringDomains: 0,
       totalBacklinks: 0,
-      source: 'Estimated'
+      source: 'Estimated',
+      error: error.message
     });
   }
 });
 
-// Fallback DA estimator based on domain characteristics
+// Fallback DA estimator
 function estimateDA(domain) {
   let score = 15;
   const name = domain.split('.')[0] || '';
-  if (name.length <= 6) score += 10;          // Short names tend to be older
-  if (name.length > 15) score -= 5;           // Long names are often newer
-  if (/\d/.test(name)) score -= 8;            // Numbers reduce brandability
-  if (name.includes('-')) score -= 10;        // Hyphens are a red flag
+  if (name.length <= 6) score += 10;
+  if (name.length > 15) score -= 5;
+  if (/\d/.test(name)) score -= 8;
+  if (name.includes('-')) score -= 10;
   return Math.max(1, Math.min(60, score));
 }
 
