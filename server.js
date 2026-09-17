@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+
+// ✅ These are safe to require at the top because they are CJS-compatible
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
-const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,8 +37,17 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
   try {
     console.log('📡 Connecting to CatchDoms MCP (Free Tier)...');
 
+    // Prefer the non-deprecated HTTP transport and fall back to the legacy SSE transport
+    // for compatibility with older MCP SDK versions.
+    let TransportClass;
+    try {
+      ({ StreamableHTTPClientTransport: TransportClass } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js'));
+    } catch {
+      ({ SSEClientTransport: TransportClass } = await import('@modelcontextprotocol/sdk/client/sse.js'));
+    }
+
     // 1. Create and connect the MCP client
-    const transport = new SSEClientTransport(new URL(CATCHDOMS_FREE_URL));
+    const transport = new TransportClass(new URL(CATCHDOMS_FREE_URL));
     client = new Client(
       { name: 'dropscore-mvp', version: '1.0.0' },
       { capabilities: {} }
@@ -46,8 +56,7 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
     await client.connect(transport);
     console.log('✅ Connected to CatchDoms MCP');
 
-    // 2. Call the search_domains tool with basic parameters
-    // The free tier returns up to 50 results, but only the first 10 have visible names.
+    // 2. Call the search_domains tool
     const result = await client.callTool({
       name: 'search_domains',
       arguments: {
@@ -62,7 +71,6 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       if (textBlock && textBlock.text) {
         try {
           const parsed = JSON.parse(textBlock.text);
-          // CatchDoms may return an array directly or an object with a 'domains' key
           domainsList = Array.isArray(parsed) ? parsed : (parsed.domains || []);
         } catch (parseErr) {
           console.error('Failed to parse CatchDoms response:', parseErr.message);
@@ -83,7 +91,6 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
 
     // 4. Transform CatchDoms data to DropScore format
     const domains = domainsList.map((d, index) => {
-      // CatchDoms field names (based on their API docs)
       const domainName = d.domain || d.name || `unknown${index}`;
       const parts = domainName.split('.');
       const name = parts[0] || domainName;
@@ -92,14 +99,12 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       const da = d.domain_authority || d.da || 0;
       const backlinks = d.backlinks || d.referring_domains || 0;
       const age = d.age_years || d.age || 0;
-      const traffic = d.traffic || 0; // May not be available on free tier
+      const traffic = d.traffic || 0;
 
-      // Calculate Flippability Score using available metrics
       const flippabilityScore = Math.min(100, Math.round(
         (da * 0.6) + (traffic / 100) + (age * 2)
       ));
 
-      // Brandability check
       let brandability = '⭐ Medium';
       if (name.length <= 8 && !/\d/.test(name) && !name.includes('-')) {
         brandability = '🔥 High';
@@ -121,15 +126,11 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
         flippabilityScore: flippabilityScore,
         brandability: brandability,
         isHot: flippabilityScore > 65,
-        // Preserve original source for transparency
         source: d.source || 'CatchDoms'
       };
     });
 
-    // Free tier: only the first 10 domains will have real names.
-    // We still send all 50, but the UI will display what it receives.
     const finalDomains = domains.slice(0, 50);
-
     console.log(`✅ Fetched ${finalDomains.length} domains from CatchDoms`);
 
     res.json({
@@ -142,8 +143,6 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
 
   } catch (error) {
     console.error('❌ CatchDoms MCP error:', error.message);
-
-    // Graceful fallback: return an informative message and an empty list
     res.json({
       success: false,
       count: 0,
@@ -153,7 +152,6 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       error: error.message
     });
   } finally {
-    // Always close the MCP client to free resources
     if (client) {
       try {
         await client.close();
@@ -372,7 +370,7 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 // ============================================
-// 8. CATCH-ALL: 404 for /api/*, index.html for everything else
+// 8. CATCH-ALL
 // ============================================
 app.get('/api/*', (req, res) => {
   res.status(404).json({ error: 'API endpoint not found', path: req.path });
