@@ -28,19 +28,58 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============================================
-// 2. FETCH EXPIRED DOMAINS (CatchDoms MCP)
+// HELPER: Check if a domain is actually available
+// ============================================
+async function checkDomainAvailability(domain) {
+  try {
+    const response = await fetch(`https://rdap.org/domain/${domain}`, {
+      headers: { 'Accept': 'application/rdap+json, application/json' },
+      signal: AbortSignal.timeout(6000)
+    });
+
+    // 404 = domain is NOT registered → available
+    if (response.status === 404) return { available: true, status: 'available' };
+
+    if (!response.ok) return { available: false, status: 'unknown' };
+
+    const data = await response.json();
+    const statusCodes = (data.status || []).map(s => s.toLowerCase());
+
+    // If any "hold" or "redemption" or "pending delete" → not available yet
+    const isPending = statusCodes.some(s =>
+      s.includes('pending') || s.includes('redemption') || s.includes('hold')
+    );
+
+    return { available: false, status: isPending ? 'pending' : 'registered' };
+
+  } catch (e) {
+    // Network error → assume unknown, don't filter it out
+    return { available: false, status: 'unknown' };
+  }
+}
+
+// ============================================
+// FETCH EXPIRED DOMAINS (WITH AVAILABILITY FILTER)
 // ============================================
 app.get('/api/fetch-expiring-domains', async (req, res) => {
   let client = null;
   try {
-    const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
     const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 
-    const transport = new StreamableHTTPClientTransport(new URL(CATCHDOMS_FREE_URL));
+    let transport;
+    try {
+      const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
+      transport = new StreamableHTTPClientTransport(new URL(CATCHDOMS_FREE_URL));
+    } catch (streamableError) {
+      const { SSEClientTransport } = require('@modelcontextprotocol/sdk/client/sse.js');
+      transport = new SSEClientTransport(new URL(CATCHDOMS_FREE_URL));
+    }
+
     client = new Client({ name: 'dropscore-mvp', version: '1.0.0' }, { capabilities: {} });
 
     await client.connect(transport);
 
+    // ✅ Request 50 domains from CatchDoms (free tier returns up to 50 results)
     const result = await client.callTool({
       name: 'search_domains',
       arguments: { limit: 50 }
@@ -59,7 +98,8 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       return res.json({ success: true, count: 0, domains: [], message: 'No domains found.' });
     }
 
-    const domains = domainsList.map((d, index) => {
+    // ✅ Transform to our format first
+    const transformed = domainsList.map((d, index) => {
       const domainName = d.domain || d.name || `unknown${index}`;
       const parts = domainName.split('.');
       const name = parts[0] || domainName;
@@ -79,6 +119,7 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
         id: index + 1,
         domain: name.toLowerCase(),
         tld: tld,
+        fullDomain: domainName.toLowerCase(),
         da: da,
         pa: d.page_authority || 0,
         backlinks: backlinks,
@@ -92,12 +133,54 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       };
     });
 
+    // ✅ Availability filter: check each domain via RDAP in parallel batches
+    console.log(`🔍 Checking availability for ${transformed.length} domains...`);
+
+    const BATCH_SIZE = 5; // parallel checks per batch (avoid rate limits)
+    const availableDomains = [];
+
+    for (let i = 0; i < transformed.length; i += BATCH_SIZE) {
+      const batch = transformed.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map(async (d) => {
+          const check = await checkDomainAvailability(d.fullDomain);
+          return { domain: d, ...check };
+        })
+      );
+
+      for (const r of results) {
+        // ✅ Keep only domains that are actually available (404 from RDAP)
+        if (r.available) {
+          availableDomains.push(r.domain);
+        }
+      }
+
+      // Small delay between batches to be respectful to RDAP
+      if (i + BATCH_SIZE < transformed.length) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    }
+
+    console.log(`✅ ${availableDomains.length} of ${transformed.length} domains are actually available`);
+
+    // Re-assign IDs sequentially after filtering
+    availableDomains.forEach((d, idx) => { d.id = idx + 1; });
+
+    if (availableDomains.length === 0) {
+      return res.json({
+        success: true,
+        count: 0,
+        domains: [],
+        message: 'All domains were already registered or pending. Try again later.'
+      });
+    }
+
     res.json({
       success: true,
-      count: domains.length,
-      domains: domains.slice(0, 50),
+      count: availableDomains.length,
+      domains: availableDomains,
       fetchedAt: new Date().toISOString(),
-      message: `Fetched ${domains.length} domains`
+      message: `Fetched ${availableDomains.length} available expired domains`
     });
 
   } catch (error) {
