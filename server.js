@@ -77,10 +77,10 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
   try {
     console.log('📡 Connecting to CatchDoms...');
 
-    const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js');
-    const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
+    const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
 
-    const transport = new SSEClientTransport(new URL(CATCHDOMS_FREE_URL));
+    const transport = new StreamableHTTPClientTransport(new URL(CATCHDOMS_FREE_URL));
     client = new Client({ name: 'dropscore-mvp', version: '1.0.0' }, { capabilities: {} });
 
     await client.connect(transport);
