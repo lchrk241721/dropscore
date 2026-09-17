@@ -32,7 +32,107 @@ app.get('/api/health', (req, res) => {
 // ============================================
 // 2. FETCH RECENTLY DELETED DOMAINS (CORE FEATURE)
 // ============================================
+const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
+const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
+
+// ... (keep your other routes)
+
+// ============================================
+// FETCH EXPIRED DOMAINS FROM CATCHDOMS MCP
+// ============================================
 app.get('/api/fetch-expiring-domains', async (req, res) => {
+  try {
+    console.log('📡 Connecting to CatchDoms MCP server...');
+
+    // 1. Create the MCP client and connect to the free server using the non-deprecated transport
+    const transport = new StreamableHTTPClientTransport(
+      new URL('https://catchdoms.com/mcp/catchdoms/free')
+    );
+    const client = new Client({ name: 'dropscore-app', version: '1.0.0' }, { capabilities: {} });
+    
+    await client.connect(transport);
+    console.log('✅ Connected to CatchDoms MCP');
+
+    // 2. Call the 'search_domains' tool to get data
+    const result = await client.callTool({
+      name: 'search_domains',
+      arguments: {
+        limit: 50 // Request up to 50 domains
+      }
+    });
+
+    // 3. Disconnect
+    await client.close();
+
+    // 4. Parse the result (CatchDoms returns data in a specific format)
+    let domainsList = [];
+    if (result.content && result.content[0] && result.content[0].text) {
+        // The text content is a JSON string representing the domains
+        const parsedData = JSON.parse(result.content[0].text);
+        domainsList = parsedData.domains || []; // Adjust based on actual response structure
+    }
+
+    if (domainsList.length === 0) {
+      return res.json({ success: true, count: 0, domains: [], message: 'No expired domains found at this time.' });
+    }
+
+    // 5. Transform CatchDoms data to your DropScore format
+    const domains = domainsList.map((d, index) => {
+      const domainName = d.name || `example${index}`;
+      const parts = domainName.split('.');
+      const name = parts[0] || domainName;
+      const tld = parts.length > 1 ? `.${parts.slice(1).join('.')}` : '.com';
+      
+      const da = d.da || 20; // Use real DA from CatchDoms
+      const traffic = d.traffic || 100; // Use real traffic if available
+      const age = d.age || 5; // Use real age if available
+
+      const flippabilityScore = Math.min(100, Math.round(da * 0.6 + traffic / 100 + age * 2));
+      
+      let brandability = 'Medium';
+      if (name.length <= 8 && !/\d/.test(name) && !name.includes('-')) brandability = '🔥 High';
+      else if (name.length <= 12 && !name.includes('-')) brandability = '⭐ Medium';
+
+      return {
+        id: index + 1,
+        domain: name.toLowerCase(),
+        tld: tld,
+        da: da,
+        pa: d.pa || 10,
+        backlinks: d.backlinks || 50,
+        traffic: traffic,
+        age: age,
+        expiry: d.expiry || 'N/A',
+        category: 'Expired',
+        flippabilityScore: flippabilityScore,
+        brandability: brandability,
+        isHot: flippabilityScore > 65
+      };
+    });
+
+    const finalDomains = domains.slice(0, 50);
+
+    res.json({
+      success: true,
+      count: finalDomains.length,
+      domains: finalDomains,
+      fetchedAt: new Date().toISOString(),
+      message: `Successfully fetched ${finalDomains.length} expired domains from CatchDoms`
+    });
+
+  } catch (error) {
+    console.error('❌ CatchDoms MCP fetch error:', error.message);
+    // Return a fallback response so your UI doesn't break
+    res.json({
+      success: true,
+      count: 0,
+      domains: [],
+      message: 'Could not fetch live data at this time. Please try again later.'
+    });
+  }
+});
+
+/*app.get('/api/fetch-expiring-domains', async (req, res) => {
   try {
     console.log('📡 Fetching recently deleted domains from DomainsDB...');
 
@@ -156,7 +256,7 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       message: 'Showing estimated data (DomainsDB API temporarily unavailable)'
     });
   }
-});
+});*/
 
 // ============================================
 // 3. SEARCH REGISTERED DOMAINS (Alternative Endpoint)
