@@ -203,45 +203,84 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
 });
 
 // ============================================
-// 4. WAYBACK MACHINE CHECK
+// 4. WAYBACK MACHINE CHECK (FULL HISTORY)
 // ============================================
 app.get('/api/wayback-check', async (req, res) => {
   const { domain } = req.query;
   if (!domain) return res.status(400).json({ error: 'Domain required' });
 
   try {
-    const cdxUrl = `https://web.archive.org/cdx/search/cdx?url=${domain}&output=json&limit=30&fl=timestamp,original,statuscode`;
-    const response = await fetch(cdxUrl, { signal: AbortSignal.timeout(15000) });
+    // Request ALL captures for the domain, not just the latest 30.
+    // We use fl to select only the fields we need (timestamp, status).
+    // The API returns a JSON array where the first row is the column header.
+    const cdxUrl = `https://web.archive.org/cdx/search/cdx?url=${domain}&output=json&fl=timestamp,statuscode&collapse=digest`;
 
-    let snapshots = [];
-    let firstCapture = null;
-    let lastCapture = null;
+    const response = await fetch(cdxUrl, { signal: AbortSignal.timeout(20000) });
 
+    let allSnapshots = [];
     if (response.ok) {
       const data = await response.json();
+      // data[0] is the header row; the rest are snapshot records
       if (data.length > 1) {
-        snapshots = data.slice(1).map(row => ({
-          timestamp: row[0], url: row[1], status: row[2]
+        allSnapshots = data.slice(1).map(row => ({
+          timestamp: row[0],
+          status: row[1]
         }));
-        firstCapture = snapshots[0]?.timestamp;
-        lastCapture = snapshots[snapshots.length - 1]?.timestamp;
       }
     }
 
+    // Prepare the summary data
+    let firstCapture = null;
+    let lastCapture = null;
+    let totalSnapshots = allSnapshots.length;
+    let yearlySummary = {};
+
+    if (totalSnapshots > 0) {
+      firstCapture = allSnapshots[0].timestamp;
+      lastCapture = allSnapshots[allSnapshots.length - 1].timestamp;
+
+      // Build a per-year summary for the last 5 years of activity
+      allSnapshots.forEach(s => {
+        const year = s.timestamp.slice(0, 4);
+        yearlySummary[year] = (yearlySummary[year] || 0) + 1;
+      });
+
+      // Sort years descending so the most recent activity appears first
+      yearlySummary = Object.entries(yearlySummary)
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .slice(0, 5);
+    }
+
+    // Determine a simple risk level based on archive volume
     let riskLevel = 'low';
     let riskLabel = '✅ Clean History';
-    if (snapshots.length === 0) { riskLevel = 'medium'; riskLabel = '⚠️ No Archive History'; }
-    else if (snapshots.length > 100) { riskLevel = 'high'; riskLabel = '🚨 Heavy Activity'; }
+    if (totalSnapshots === 0) {
+      riskLevel = 'medium';
+      riskLabel = '⚠️ No Archive History';
+    } else if (totalSnapshots > 100) {
+      riskLevel = 'high';
+      riskLabel = '🚨 Heavy Archive Activity';
+    }
 
     res.json({
-      domain, totalSnapshots: snapshots.length, firstCapture, lastCapture,
-      riskLevel, riskLabel, snapshots: snapshots.slice(0, 10),
+      domain,
+      totalSnapshots,
+      firstCapture,
+      lastCapture,
+      yearlySummary,
+      riskLevel,
+      riskLabel,
       waybackUrl: `https://web.archive.org/web/*/${domain}`
     });
+
   } catch (error) {
+    console.error('Wayback error:', error.message);
     res.json({
-      domain, totalSnapshots: 0, riskLevel: 'unknown',
-      riskLabel: '❓ Could not check', error: error.message,
+      domain,
+      totalSnapshots: 0,
+      riskLevel: 'unknown',
+      riskLabel: '❓ Could not check',
+      error: error.message,
       waybackUrl: `https://web.archive.org/web/*/${domain}`
     });
   }
