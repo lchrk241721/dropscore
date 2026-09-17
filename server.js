@@ -402,6 +402,74 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 // ============================================
+// REAL DOMAIN AUTHORITY (Crawly Free API)
+// ============================================
+app.get('/api/domain-authority', async (req, res) => {
+  const { domain } = req.query;
+  if (!domain) return res.status(400).json({ error: 'Domain required' });
+
+  // If no API key configured, return estimated fallback
+  if (!CRAWLY_API_KEY) {
+    return res.json({
+      domain: domain,
+      authorityScore: estimateDA(domain),
+      referringDomains: 0,
+      totalBacklinks: 0,
+      source: 'Estimated'
+    });
+  }
+
+  try {
+    const url = `https://www.getcrawly.com/api/v1/domain-authority?domain=${domain}`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${CRAWLY_API_KEY}` },
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (!response.ok) throw new Error(`Crawly returned ${response.status}`);
+
+    const data = await response.json();
+
+    // Crawly returns: summary.referring_domains, summary.total_links, score.harmonic_score
+    // Derive a 0-100 DA-like score from the harmonic score if authority_score is absent
+    const authorityScore = data.authority_score
+      || Math.min(100, Math.round((data.score?.harmonic_score || 0) * 100))
+      || estimateDA(domain);
+
+    res.json({
+      domain: domain,
+      authorityScore: authorityScore,
+      referringDomains: data.summary?.referring_domains || 0,
+      totalBacklinks: data.summary?.total_links || 0,
+      harmonicRank: data.score?.harmonic_rank || null,
+      pagerankRank: data.score?.pagerank_rank || null,
+      source: 'Crawly'
+    });
+
+  } catch (error) {
+    console.error('DA check error:', error.message);
+    res.json({
+      domain: domain,
+      authorityScore: estimateDA(domain),
+      referringDomains: 0,
+      totalBacklinks: 0,
+      source: 'Estimated'
+    });
+  }
+});
+
+// Fallback DA estimator based on domain characteristics
+function estimateDA(domain) {
+  let score = 15;
+  const name = domain.split('.')[0] || '';
+  if (name.length <= 6) score += 10;          // Short names tend to be older
+  if (name.length > 15) score -= 5;           // Long names are often newer
+  if (/\d/.test(name)) score -= 8;            // Numbers reduce brandability
+  if (name.includes('-')) score -= 10;        // Hyphens are a red flag
+  return Math.max(1, Math.min(60, score));
+}
+
+// ============================================
 // 10. CATCH-ALL
 // ============================================
 app.get('/api/*', (req, res) => {
