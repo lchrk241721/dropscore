@@ -3,23 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
   <title>DropScore – AI-Powered Expired Domain Flippability Score</title>
-  <meta name="description" content="Discover if an expired domain is worth buying. DropScore's AI analyzes DA, backlinks, traffic, and age to generate a Flippability Score and Brandability Index in seconds. Try it free." />
-  <meta name="keywords" content="expired domains, domain flipping, flippability score, brandable domains, domain investing, expired domain finder, domain auction, dropcatch, SEO domains, domain authority checker, backlink checker, expired domain tool, domain valuation, AI domain scorer" />
+  <meta name="description" content="Discover if an expired domain is worth buying. DropScore's AI analyzes DA, backlinks, traffic, and age to generate a Flippability Score and Brandability Index in seconds." />
   <meta name="msvalidate.01" content="E3BB531A34AEAFAE0DCF8EC271D09BBF" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
   <link rel="canonical" href="https://dropscore.online" />
-
-  <meta property="og:title" content="DropScore – AI Expired Domain Flippability Score" />
-  <meta property="og:description" content="Find expired domains worth flipping with an instant AI Flippability Score. Analyze DA, backlinks, traffic & brandability." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://dropscore.online" />
-  <meta property="og:image" content="https://dropscore.online/og-image.jpg" />
-
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="DropScore – AI Expired Domain Flippability Score" />
-  <meta name="twitter:description" content="Instant AI scores for expired domains. Find flippable domains with real SEO value." />
 
   <script type="application/ld+json">
   {
@@ -31,222 +19,122 @@
         "url": "https://dropscore.online",
         "description": "AI-powered expired domain flippability score generator.",
         "applicationCategory": "BusinessApplication",
-        "operatingSystem": "All",
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-        "author": { "@type": "Organization", "name": "DropScore" }
-      },
-      {
-        "@type": "FAQPage",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "What is a Flippability Score?",
-            "acceptedAnswer": { "@type": "Answer", "text": "A Flippability Score is a 0-100 metric combining Domain Authority, backlink quality, monthly traffic, and domain age to indicate flip potential." }
-          },
-          {
-            "@type": "Question",
-            "name": "Is DropScore free?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Yes, DropScore is completely free. Free tier shows up to 10 real domain names per fetch. Pro tier (coming soon) will show 50+ domains." }
-          }
-        ]
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
       }
     ]
   }
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  
+
   <style>
     * { transition: background-color 0.25s ease, border-color 0.25s ease, color 0.2s ease; }
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { font-family: 'Inter', -apple-system, sans-serif; }
     .glass { background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(12px); border: 1px solid #2d3748; }
     .dark .glass { background: rgba(17, 24, 39, 0.8); border-color: #2d3748; }
     .light .glass { background: rgba(255, 255, 255, 0.85); border-color: #d1d5db; }
     .card-hover:hover { transform: translateY(-4px); transition: all 0.2s ease; }
-    #compare-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; display: none; }
     .theme-toggle { cursor: pointer; font-size: 1.25rem; }
-    
-    #liveDataModal, #statusModal, #upgradeModal { transition: opacity 0.3s ease; }
-    #liveDataModalCard, #statusModalCard, #upgradeModalCard {
-      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    #liveDataModal:not(.hidden) #liveDataModalCard,
-    #statusModal:not(.hidden) #statusModalCard,
-    #upgradeModal:not(.hidden) #upgradeModalCard {
-      opacity: 1; transform: scale(1);
-    }
-
-    .domain-data-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.75rem 1.5rem;
-      width: 100%;
-    }
+    #compare-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; display: none; }
+    .domain-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; }
+    .domain-data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1.5rem; width: 100%; }
     .domain-data-item { display: flex; flex-direction: column; }
-    .domain-data-item .label {
-      font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
-      color: #9ca3af; font-weight: 600;
-    }
-    .domain-data-item .value {
-      font-size: 0.9rem; font-weight: 500; color: #1f2937; word-break: break-all;
-    }
+    .domain-data-item .label { font-size: 0.65rem; text-transform: uppercase; color: #9ca3af; font-weight: 600; }
+    .domain-data-item .value { font-size: 0.9rem; font-weight: 500; color: #1f2937; word-break: break-all; }
     .dark .domain-data-item .value { color: #e5e7eb; }
-
-    .status-badge {
-      display: inline-block; padding: 0.15rem 0.6rem; border-radius: 9999px;
-      font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
-    }
-    .status-badge.success { background: #d1fae5; color: #065f46; }
-    .status-badge.error { background: #fee2e2; color: #991b1b; }
-    .status-badge.warning { background: #fef3c7; color: #92400e; }
-    .dark .status-badge.success { background: #064e3b; color: #a7f3d0; }
-    .dark .status-badge.error { background: #7f1d1d; color: #fca5a5; }
-    .dark .status-badge.warning { background: #78350f; color: #fcd34d; }
-
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
-      50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.6); }
-    }
+    @keyframes pulse-glow { 0%,100%{box-shadow:0 0 20px rgba(59,130,246,0.3);} 50%{box-shadow:0 0 40px rgba(59,130,246,0.6);} }
     .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
-    
-    .domain-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+    #liveDataModal, #statusModal, #upgradeModal, #waybackModal { transition: opacity 0.3s ease; }
+    #liveDataModal:not(.hidden), #statusModal:not(.hidden), #upgradeModal:not(.hidden),
+    #waybackModal:not(.hidden) { display: flex; }
   </style>
-  
-  <!--Tracemyip tracker - DO NOT MODIFY -->
-  <div id="elemID031021" style="line-height:16px;text-align:center;z-index:100000;"><script async type="text/javascript" src="//s2.tracemyip.org/vLg/lgUrl.php?pidnVar2=104924&amp;prtVar2=4&amp;stlVar2=1500~1787191412~14*3~0F5999*F7FFE6*537899*000000~1*1*1*0*1&amp;rgtype=4684NR-IPIB&amp;scvVar2=12"></script><noscript><a href="https://www.tracemyip.org/website-analytics.htm"><img src="//s2.tracemyip.org/vLg/1500~1787191412~14*3~0F5999*F7FFE6*537899*000000~1*1*1*0*1/4684NR-IPIB/104924/4/12/ans/" alt="Easy To Use Page Hit Statistics" referrerpolicy="no-referrer-when-downgrade" style="border:0px;"></a></noscript></div>
 </head>
 <body class="bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-100">
 
-  <!-- ============================================ -->
-  <!-- SECTION 1: HEADER                             -->
-  <!-- ============================================ -->
+  <!-- HEADER -->
   <header class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between border-b border-gray-200 dark:border-gray-800">
     <div class="flex items-center gap-3">
       <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white">⚡ Drop<span class="text-blue-600 dark:text-blue-400">Score</span></h1>
-      <span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">LIVE</span>
+      <span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase">LIVE</span>
     </div>
     <div class="flex items-center gap-4">
       <button id="themeToggle" class="theme-toggle text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
         <i id="themeIcon" class="fas fa-moon"></i>
       </button>
-      <span class="hidden md:inline text-sm text-gray-500 dark:text-gray-400">
-        <i class="fas fa-robot mr-1 text-blue-500"></i> AI Score
-      </span>
-      <span class="hidden md:inline text-sm text-gray-500 dark:text-gray-400">
-        <i class="fas fa-chart-line mr-1 text-green-400"></i> Live Data
-      </span>
+      <span class="hidden md:inline text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-robot mr-1 text-blue-500"></i> AI Score</span>
     </div>
   </header>
 
-  <!-- ============================================ -->
-  <!-- SECTION 2: PRO TIER PROMO BANNER (REPURPOSED) -->
-  <!-- ============================================ -->
+  <!-- PRO BANNER -->
   <div class="max-w-7xl mx-auto px-4 mt-4">
     <div class="bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-700 dark:to-purple-800 p-4 rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 shadow-lg">
       <p class="text-sm text-white flex items-center gap-2">
         <i class="fas fa-rocket text-yellow-300 text-lg"></i>
-        <span><strong>Pro Tier Coming Soon:</strong> Get <strong>50+ domains per fetch</strong> + full SEO metrics (Trust Flow, Citation Flow, and more).</span>
+        <span><strong>Pro Tier Coming Soon:</strong> 50+ domains per fetch + full SEO metrics.</span>
       </p>
-      <button onclick="showUpgradeModal()" class="px-5 py-2 bg-white hover:bg-gray-100 text-indigo-700 rounded-lg font-bold text-sm whitespace-nowrap transition shadow-md">
-        Join Pro Waitlist 🚀
-      </button>
+      <button onclick="showUpgradeModal()" class="px-5 py-2 bg-white hover:bg-gray-100 text-indigo-700 rounded-lg font-bold text-sm whitespace-nowrap transition shadow-md">Join Pro Waitlist 🚀</button>
     </div>
   </div>
 
-  <!-- ============================================ -->
-  <!-- SECTION 3: AI KNOWLEDGE PANEL                 -->
-  <!-- ============================================ -->
-  <div class="max-w-7xl mx-auto px-4 mt-4">
-    <div class="bg-gradient-to-r from-gray-100 to-blue-50 dark:from-gray-800 dark:to-blue-900/30 border border-blue-300 dark:border-blue-700 p-6 rounded-xl shadow-sm">
-      <div class="flex items-center gap-2 mb-2">
-        <i class="fas fa-robot text-blue-600 dark:text-blue-400"></i>
-        <span class="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">AI Knowledge Panel</span>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-800 dark:text-gray-200">
-        <div>
-          <h3 class="font-bold text-blue-700 dark:text-blue-400">What is DropScore?</h3>
-          <p class="text-gray-700 dark:text-gray-300">DropScore is an AI-powered expired domain analyzer that generates a proprietary <strong>Flippability Score</strong> (0-100) by combining Domain Authority (DA), backlink quality, monthly traffic estimates, and domain age.</p>
-        </div>
-        <div>
-          <h3 class="font-bold text-green-700 dark:text-green-400">How is the Flippability Score calculated?</h3>
-          <p class="text-gray-700 dark:text-gray-300">The score uses a weighted algorithm: <strong>DA (40%)</strong>, <strong>Monthly Traffic (30%)</strong>, <strong>Domain Age (20%)</strong>, and <strong>Backlink Quality (10%)</strong>.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================ -->
-  <!-- SECTION 4: MAIN CONTENT                       -->
-  <!-- ============================================ -->
+  <!-- MAIN -->
   <main class="max-w-7xl mx-auto px-4 py-6">
-
     <div class="text-center mb-6">
-      <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-        Fetch Live <span class="text-blue-600 dark:text-blue-400">Expired Domains</span>
-      </h2>
-      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">
-        Click the button below to fetch <strong>real expired domains</strong>.<br>
-        <span class="text-xs text-gray-500">🔍 Search & filter • ⚡ Unlimited fetches</span>
-      </p>
+      <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Fetch Live <span class="text-blue-600 dark:text-blue-400">Expired Domains</span></h2>
+      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Click below to fetch real expired domains.</p>
     </div>
 
-    <!-- Free Tier Notice + Get 50+ Button -->
+    <!-- FREE TIER NOTICE -->
     <div class="max-w-3xl mx-auto mb-4">
       <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
         <div class="flex items-center gap-3">
           <i class="fas fa-bolt text-amber-500 text-lg"></i>
-          <div class="text-amber-800 dark:text-amber-200">
-            <strong>Free Tier:</strong> Shows up to <strong>10 real domain names</strong> per fetch.
-          </div>
+          <div class="text-amber-800 dark:text-amber-200"><strong>Free Tier:</strong> Up to <strong>10 domains</strong> per fetch.</div>
         </div>
-        <button onclick="showUpgradeModal()" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-full transition whitespace-nowrap">
-          🚀 Get 50+ Domains
-        </button>
+        <button onclick="showUpgradeModal()" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-full transition">🚀 Get 50+ Domains</button>
       </div>
     </div>
 
-    <!-- Fetch Button & Progress -->
+    <!-- FETCH BUTTON -->
     <div class="glass rounded-2xl p-5 mb-6 shadow-sm">
       <div class="flex flex-col md:flex-row items-center justify-between gap-4">
         <div class="flex-1">
           <div id="fetchStatus" class="text-sm text-gray-600 dark:text-gray-400">
-            <i class="fas fa-info-circle mr-1 text-blue-500"></i> 
-            Click "Fetch Live Data" to get real expired domains.
+            <i class="fas fa-info-circle mr-1 text-blue-500"></i> Click "Fetch Live Data" to get domains.
           </div>
         </div>
-        <button id="fetchBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-4 rounded-xl transition shadow-lg pulse-glow flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:animate-none whitespace-nowrap">
+        <button id="fetchBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-4 rounded-xl transition shadow-lg pulse-glow flex items-center gap-3 disabled:opacity-50 whitespace-nowrap">
           <i id="fetchIcon" class="fas fa-cloud-download-alt"></i>
           <span id="fetchBtnText">Fetch Live Data</span>
         </button>
       </div>
-      
       <div id="fetchProgress" class="mt-4 hidden">
         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-          <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+          <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
         </div>
         <p id="progressText" class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">Connecting...</p>
       </div>
     </div>
 
-    <!-- Search & Filters -->
+    <!-- SEARCH & FILTERS -->
     <div id="filterSection" class="hidden mb-6">
       <div class="flex flex-col md:flex-row gap-4">
         <div class="relative flex-1">
-          <i class="fas fa-search absolute left-4 top-3 text-gray-400 dark:text-gray-500"></i>
-          <input type="text" id="searchInput" placeholder="Search within your fetched domains..." class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl py-3 pl-11 pr-4 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          <i class="fas fa-search absolute left-4 top-3 text-gray-400"></i>
+          <input type="text" id="searchInput" placeholder="Search domains..." class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl py-3 pl-11 pr-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600" />
         </div>
         <div class="flex flex-wrap gap-3">
-          <select id="sortSelect" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600">
+          <select id="sortSelect" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white">
             <option value="score">🏆 Sort by Flip Score</option>
             <option value="traffic">📊 Sort by Traffic</option>
             <option value="da">📈 Sort by DA</option>
             <option value="name">🔤 Sort by Name</option>
           </select>
-          <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-bold text-sm disabled:opacity-50" disabled>
             <i class="fas fa-file-csv"></i> Export CSV
           </button>
-          <button id="compareBtn" class="bg-purple-700 hover:bg-purple-800 text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          <button id="compareBtn" class="bg-purple-700 hover:bg-purple-800 text-white px-5 py-3 rounded-xl font-bold text-sm disabled:opacity-50" disabled>
             <i class="fas fa-balance-scale"></i> Compare (<span id="compareCount">0</span>/3)
           </button>
         </div>
@@ -254,171 +142,123 @@
       <div id="resultCount" class="text-xs text-gray-500 dark:text-gray-400 mt-2"></div>
     </div>
 
-    <!-- Loading & Results -->
+    <!-- RESULTS -->
     <div id="loadingSpinner" class="text-center py-20 text-gray-500 hidden">
       <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
-      <p class="mt-2">Fetching live expired domains...</p>
+      <p class="mt-2">Fetching...</p>
     </div>
-    
     <div id="domainGrid" class="domain-grid"></div>
-    
     <div id="emptyState" class="text-center py-20 hidden">
       <i class="fas fa-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
       <p class="text-gray-500 dark:text-gray-400">No domains fetched yet.</p>
-      <p class="text-sm text-gray-400 dark:text-gray-500">Click "Fetch Live Data" to get started.</p>
     </div>
-
     <div id="noResultsState" class="text-center py-20 hidden">
       <i class="fas fa-search text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
       <p class="text-gray-500 dark:text-gray-400">No domains match your search.</p>
-      <p class="text-sm text-gray-400 dark:text-gray-500">Try a different keyword or clear the search.</p>
     </div>
-
   </main>
 
-  <!-- ============================================ -->
-  <!-- SECTION 5: COMPARE FLOATING BAR               -->
-  <!-- ============================================ -->
+  <!-- COMPARE BAR -->
   <div id="compare-bar" class="glass p-4 flex justify-between items-center shadow-2xl">
     <div class="flex gap-3 flex-wrap" id="compareList"></div>
     <div class="flex gap-3">
-      <button id="clearCompare" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-800 dark:text-white transition">Clear</button>
-      <button id="viewCompare" class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-sm transition">View Comparison</button>
+      <button id="clearCompare" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">Clear</button>
+      <button id="viewCompare" class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-sm">View Comparison</button>
     </div>
   </div>
 
-  <!-- ============================================ -->
-  <!-- SECTION 6: COMPARISON MODAL                   -->
-  <!-- ============================================ -->
+  <!-- COMPARISON MODAL -->
   <div id="compareModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl max-w-4xl w-full max-h-[80vh] overflow-y-auto p-6 relative shadow-2xl">
-      <button id="closeModal" class="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-2xl">&times;</button>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl max-w-4xl w-full max-h-[80vh] overflow-y-auto p-6 relative">
+      <button id="closeModal" class="absolute top-4 right-4 text-gray-500 text-2xl">&times;</button>
       <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">⚖️ Domain Showdown</h2>
-      <div id="comparisonTable" class="overflow-x-auto"></div>
-      <div class="mt-4 text-xs text-gray-500 dark:text-gray-500">💡 Winner = highest Flip Score + High Brandability.</div>
+      <div id="comparisonTable"></div>
     </div>
   </div>
 
-  <!-- ============================================ -->
-  <!-- SECTION 7: LIVE WHOIS DATA MODAL              -->
-  <!-- ============================================ -->
-  <div id="liveDataModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transform scale-95 opacity-0" id="liveDataModalCard">
-      <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 id="modalTitle" class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <span id="modalIcon">🔍</span> <span id="modalTitleText">Checking Domain...</span>
-        </h3>
-        <button id="closeLiveDataModal" class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl">&times;</button>
+  <!-- LIVE WHOIS MODAL -->
+  <div id="liveDataModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="modalTitleText" class="text-lg font-bold text-gray-900 dark:text-white">Checking...</h3>
+        <button onclick="closeLiveDataModal()" class="text-gray-400 text-2xl">&times;</button>
       </div>
-      <div id="modalBody" class="px-6 py-5 text-gray-700 dark:text-gray-300 min-h-[120px] flex items-center justify-center">
-        <div class="flex flex-col items-center gap-3 w-full">
-          <div id="modalSpinner" class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p id="modalMessage" class="text-center">Fetching live WHOIS data...</p>
-        </div>
-      </div>
-      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-        <button id="modalCloseBtn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition shadow-sm">Done</button>
-      </div>
+      <div id="modalMessage" class="text-gray-700 dark:text-gray-300">Loading...</div>
     </div>
   </div>
 
-  <!-- ============================================ -->
-  <!-- SECTION 8: DOMAIN STATUS MODAL                -->
-  <!-- ============================================ -->
-  <div id="statusModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div id="statusModalCard" class="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transform scale-95 opacity-0">
-      <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 id="statusModalTitle" class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          🔍 Domain Status
-        </h3>
-        <button onclick="closeStatusModal()" class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl">&times;</button>
+  <!-- STATUS MODAL -->
+  <div id="statusModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="statusModalTitle" class="text-lg font-bold text-gray-900 dark:text-white">Status</h3>
+        <button onclick="closeStatusModal()" class="text-gray-400 text-2xl">&times;</button>
       </div>
-      <div id="statusModalBody" class="px-6 py-5 text-gray-700 dark:text-gray-300">
-        Loading...
-      </div>
-      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-        <button onclick="closeStatusModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg text-sm transition">Close</button>
-        <a id="statusModalAction" href="#" target="_blank" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition shadow-sm">Check Now</a>
+      <div id="statusModalBody" class="text-gray-700 dark:text-gray-300">Loading...</div>
+      <div class="mt-4 flex justify-end gap-3">
+        <button onclick="closeStatusModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">Close</button>
+        <a id="statusModalAction" href="#" target="_blank" class="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm">Check Now</a>
       </div>
     </div>
   </div>
 
-  <!-- ============================================ -->
-  <!-- SECTION 9: UPGRADE / PRO WAITLIST MODAL       -->
-  <!-- ============================================ -->
-  <div id="upgradeModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div id="upgradeModalCard" class="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transform scale-95 opacity-0">
-      <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          🚀 Unlock 50+ Domains Daily
-        </h3>
-        <button onclick="closeUpgradeModal()" class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl">&times;</button>
+  <!-- WAYBACK / SPAM MODAL -->
+  <div id="waybackModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full p-6 max-h-[80vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="waybackModalTitle" class="text-lg font-bold text-gray-900 dark:text-white">🕰️ Domain History</h3>
+        <button onclick="closeWaybackModal()" class="text-gray-400 text-2xl">&times;</button>
       </div>
-      <div class="px-6 py-5">
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Get early access to our <strong>Pro tier</strong> with <strong>50+ real domain names per fetch</strong> and full SEO metrics. Be the first to know when we launch.
-        </p>
-        <form id="upgradeForm" class="flex flex-col gap-3">
-          <input type="email" id="upgradeEmail" placeholder="Enter your email" required class="w-full px-4 py-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
-            Notify Me When Pro Launches
-          </button>
-        </form>
-        <p class="text-xs text-gray-400 mt-3 text-center">We'll only email you about the Pro launch. No spam.</p>
-      </div>
+      <div id="waybackModalBody" class="text-gray-700 dark:text-gray-300">Loading...</div>
     </div>
   </div>
 
-  <!-- ============================================ -->
-  <!-- SECTION 10: FOOTER                            -->
-  <!-- ============================================ -->
+  <!-- UPGRADE MODAL -->
+  <div id="upgradeModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white">🚀 Unlock 50+ Domains</h3>
+        <button onclick="closeUpgradeModal()" class="text-gray-400 text-2xl">&times;</button>
+      </div>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Get early access to Pro with 50+ domains per fetch.</p>
+      <form id="upgradeForm" class="flex flex-col gap-3">
+        <input type="email" id="upgradeEmail" placeholder="Enter your email" required class="w-full px-4 py-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white" />
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg">Notify Me When Pro Launches</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
   <footer class="text-center text-[10px] text-gray-400 dark:text-gray-600 py-8 border-t border-gray-200 dark:border-gray-800 mt-8">
-    ⚡ DropScore • Real-time expired domain data • Free Tier: up to 10 domains per fetch
+    ⚡ DropScore • Free Tier: up to 10 domains per fetch
   </footer>
 
   <script>
-    // ============================================
-    // SECTION 11: THEME TOGGLE
-    // ============================================
+    // THEME TOGGLE
     const htmlEl = document.documentElement;
     const themeIcon = document.getElementById('themeIcon');
-
     if (localStorage.getItem('theme') === 'light') {
       htmlEl.classList.remove('dark'); htmlEl.classList.add('light');
       themeIcon.className = 'fas fa-sun';
-    } else {
-      htmlEl.classList.add('dark'); htmlEl.classList.remove('light');
-      themeIcon.className = 'fas fa-moon';
     }
-
     document.getElementById('themeToggle').addEventListener('click', () => {
       if (htmlEl.classList.contains('dark')) {
         htmlEl.classList.remove('dark'); htmlEl.classList.add('light');
-        themeIcon.className = 'fas fa-sun';
-        localStorage.setItem('theme', 'light');
+        themeIcon.className = 'fas fa-sun'; localStorage.setItem('theme', 'light');
       } else {
         htmlEl.classList.remove('light'); htmlEl.classList.add('dark');
-        themeIcon.className = 'fas fa-moon';
-        localStorage.setItem('theme', 'dark');
+        themeIcon.className = 'fas fa-moon'; localStorage.setItem('theme', 'dark');
       }
     });
 
-    // ============================================
-    // SECTION 12: CONFIGURATION
-    // ============================================
+    // STATE
     const FREE_TIER_LIMIT = 10;
-
-    // ============================================
-    // SECTION 13: STATE
-    // ============================================
     let currentDomains = [];
     let filteredDomains = [];
     let compareList = [];
     let isFetching = false;
 
-    // ============================================
-    // SECTION 14: DOM REFERENCES
-    // ============================================
+    // DOM REFS
     const grid = document.getElementById('domainGrid');
     const searchInput = document.getElementById('searchInput');
     const sortSelect = document.getElementById('sortSelect');
@@ -439,173 +279,88 @@
     const progressText = document.getElementById('progressText');
     const filterSection = document.getElementById('filterSection');
 
-    // ============================================
-    // SECTION 15: UPGRADE MODAL HANDLERS
-    // ============================================
-    function showUpgradeModal() {
-      document.getElementById('upgradeModal').classList.remove('hidden');
-    }
-    function closeUpgradeModal() {
-      document.getElementById('upgradeModal').classList.add('hidden');
-    }
-    document.getElementById('upgradeModal').addEventListener('click', (e) => {
-      if (e.target === document.getElementById('upgradeModal')) closeUpgradeModal();
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeUpgradeModal();
-    });
-
-    document.getElementById('upgradeForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('upgradeEmail').value;
-      const res = await fetch('/api/waitlist?source=upgrade_interest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
-      });
-      if (res.ok) {
-        alert('✅ You are on the Pro launch list! We will email you when it is ready.');
-        document.getElementById('upgradeEmail').value = '';
-        closeUpgradeModal();
-      }
-    });
-
-    // ============================================
-    // SECTION 16: FETCH LIVE DOMAINS
-    // ============================================
+    // FETCH LIVE DOMAINS
     async function fetchLiveDomains() {
       if (isFetching) return;
-
       isFetching = true;
       fetchBtn.disabled = true;
       fetchBtnText.textContent = 'Fetching...';
       fetchIcon.className = 'fas fa-spinner fa-spin';
-      
       fetchProgress.classList.remove('hidden');
-      progressBar.style.width = '0%';
-      progressText.textContent = 'Connecting to API...';
-      fetchStatus.innerHTML = `<i class="fas fa-spinner fa-spin mr-1 text-blue-500"></i> Fetching domains...`;
+      fetchStatus.innerHTML = '<i class="fas fa-spinner fa-spin mr-1 text-blue-500"></i> Fetching...';
 
       try {
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-          progress += Math.random() * 10;
-          if (progress > 90) progress = 90;
-          progressBar.style.width = `${Math.min(progress, 90)}%`;
-          if (progress < 30) progressText.textContent = 'Contacting API...';
-          else if (progress < 60) progressText.textContent = 'Downloading domain data...';
-          else if (progress < 85) progressText.textContent = 'Processing domain information...';
-        }, 300);
-
         const response = await fetch('/api/fetch-expiring-domains');
         const data = await response.json();
 
-        clearInterval(progressInterval);
-        progressBar.style.width = '100%';
-        progressText.textContent = '✅ Done!';
-
         if (data.success && data.domains && data.domains.length > 0) {
           const limitedDomains = data.domains.slice(0, FREE_TIER_LIMIT);
-          
-          localStorage.setItem('dropscore_domains', JSON.stringify(limitedDomains));
-          localStorage.setItem('dropscore_fetch_time', Date.now().toString());
-          
           currentDomains = limitedDomains;
           filteredDomains = [...currentDomains];
           renderDomains(filteredDomains);
-          
           filterSection.classList.remove('hidden');
           exportBtn.disabled = false;
-          
-          fetchStatus.innerHTML = `<i class="fas fa-check-circle mr-1 text-green-500"></i> ✅ Fetched <strong>${limitedDomains.length}</strong> real expired domains <span class="text-xs text-amber-600 dark:text-amber-400">(Free Tier limit: ${FREE_TIER_LIMIT})</span>`;
-          fetchBtnText.textContent = 'Fetch Again';
-          fetchIcon.className = 'fas fa-cloud-download-alt';
-          
-        } else if (data.success && data.domains && data.domains.length === 0) {
-          fetchStatus.innerHTML = `<i class="fas fa-info-circle mr-1 text-blue-500"></i> No domains found. Try again later.`;
-          fetchBtnText.textContent = 'Try Again';
-          fetchIcon.className = 'fas fa-info-circle';
+          fetchStatus.innerHTML = `✅ Fetched <strong>${limitedDomains.length}</strong> domains (Free Tier limit: ${FREE_TIER_LIMIT})`;
         } else {
-          fetchStatus.innerHTML = `<i class="fas fa-exclamation-circle mr-1 text-red-500"></i> ❌ ${data.error || data.message || 'Failed to fetch.'}`;
-          fetchBtnText.textContent = 'Try Again';
-          fetchIcon.className = 'fas fa-exclamation-circle';
+          fetchStatus.innerHTML = '⚠️ No domains found. Try again.';
         }
-
       } catch (error) {
-        console.error('Fetch error:', error);
-        fetchStatus.innerHTML = `<i class="fas fa-exclamation-circle mr-1 text-red-500"></i> ❌ Failed to fetch. Please try again.`;
-        fetchBtnText.textContent = 'Retry';
-        fetchIcon.className = 'fas fa-exclamation-circle';
+        fetchStatus.innerHTML = '❌ Failed to fetch. Try again.';
       }
 
       setTimeout(() => {
         isFetching = false;
-        progressBar.style.width = '0%';
         fetchProgress.classList.add('hidden');
         fetchBtn.disabled = false;
         fetchBtnText.textContent = 'Fetch Live Data';
         fetchIcon.className = 'fas fa-cloud-download-alt';
-      }, 1500);
+      }, 1000);
     }
 
-    // ============================================
-    // SECTION 17: RENDER DOMAIN CARDS
-    // ============================================
+    // RENDER DOMAIN CARDS
     function renderDomains(domains) {
       if (!domains || domains.length === 0) {
         grid.innerHTML = '';
-        if (currentDomains.length === 0) {
-          emptyState.classList.remove('hidden');
-          noResultsState.classList.add('hidden');
-        } else {
-          emptyState.classList.add('hidden');
-          noResultsState.classList.remove('hidden');
-        }
+        if (currentDomains.length === 0) emptyState.classList.remove('hidden');
+        else noResultsState.classList.remove('hidden');
         resultCount.textContent = '';
         return;
       }
-
       emptyState.classList.add('hidden');
       noResultsState.classList.add('hidden');
-      
+
       grid.innerHTML = domains.map(d => {
         const isInCompare = compareList.some(c => c.id === d.id);
-        const scoreColor = d.flippabilityScore >= 70 ? 'text-green-600 dark:text-green-400' : 
+        const scoreColor = d.flippabilityScore >= 70 ? 'text-green-600 dark:text-green-400' :
                           (d.flippabilityScore >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400');
-        
         return `
           <div class="bg-white dark:bg-gray-900 border ${isInCompare ? 'border-purple-500' : 'border-gray-200 dark:border-gray-800'} rounded-xl p-4 card-hover shadow-sm">
             <div class="flex justify-between items-start">
               <div class="flex-1 min-w-0">
-                <span class="text-xs text-gray-500 dark:text-gray-500">${d.category || 'Expired'}</span>
+                <span class="text-xs text-gray-500">${d.category || 'Expired'}</span>
                 <h3 class="text-lg font-bold text-gray-900 dark:text-white truncate">${d.domain}${d.tld}</h3>
               </div>
               <span class="text-[10px] font-bold px-2 py-1 rounded-full ${d.isHot ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}">${d.isHot ? '🔥 HOT' : ''}</span>
             </div>
-            
             <div class="flex flex-wrap gap-2 mt-3 text-xs">
-              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-800 dark:text-gray-300">DA: ${d.da || 'N/A'}</span>
-              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-800 dark:text-gray-300">BL: ${d.backlinks || 'N/A'}</span>
-              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-800 dark:text-gray-300">🚦 ${d.traffic || 'N/A'}</span>
-              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-800 dark:text-gray-300">📅 ${d.age || 'N/A'}y</span>
+              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">DA: ${d.da || 'N/A'}</span>
+              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">BL: ${d.backlinks || 'N/A'}</span>
+              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">🚦 ${d.traffic || 'N/A'}</span>
+              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">📅 ${d.age || 'N/A'}y</span>
             </div>
-            
             <div class="mt-3">
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500 dark:text-gray-400">Flip Score:</span>
-                <span class="text-sm font-bold ${scoreColor}">${d.flippabilityScore || 'N/A'}</span>
-              </div>
-              <span class="text-[10px] text-gray-500 dark:text-gray-500">${d.brandability || '⭐ Medium'} Brandable</span>
+              <span class="text-xs text-gray-500">Flip Score:</span>
+              <span class="text-sm font-bold ${scoreColor}">${d.flippabilityScore || 'N/A'}</span>
+              <span class="text-[10px] text-gray-500 ml-2">${d.brandability || '⭐ Medium'}</span>
             </div>
-
             <div class="mt-3 flex flex-wrap gap-2">
-              <button onclick="toggleCompare(${d.id})" class="text-xs ${isInCompare ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} hover:bg-purple-700 hover:text-white px-3 py-1 rounded-full transition">
+              <button onclick="toggleCompare(${d.id})" class="text-xs ${isInCompare ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} hover:bg-purple-700 hover:text-white px-3 py-1 rounded-full">
                 ${isInCompare ? '✓ In Compare' : '+ Compare'}
               </button>
-              <button onclick="fetchLiveData(${d.id})" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-full font-semibold transition">
-                WHOIS 🔎
+              <button onclick="checkWayback('${d.domain}${d.tld}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-full">
+                🕰️ History
               </button>
-              <button onclick="checkDomainStatus('${d.domain}${d.tld}', this)" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full font-semibold transition">
+              <button onclick="checkDomainStatus('${d.domain}${d.tld}', this)" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full">
                 Check Status 🔍
               </button>
             </div>
@@ -613,211 +368,129 @@
         `;
       }).join('');
 
-      resultCount.textContent = `Showing ${domains.length} of ${currentDomains.length} domains (Free Tier limit: ${FREE_TIER_LIMIT})`;
+      resultCount.textContent = `Showing ${domains.length} of ${currentDomains.length} domains`;
     }
 
-    // ============================================
-    // SECTION 18: DOMAIN STATUS CHECK
-    // ============================================
+    // WAYBACK / SPAM CHECK
+    async function checkWayback(domain) {
+      document.getElementById('waybackModal').classList.remove('hidden');
+      document.getElementById('waybackModalTitle').textContent = `🕰️ ${domain} History`;
+      document.getElementById('waybackModalBody').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking archive history...';
+
+      try {
+        const [waybackRes, spamRes] = await Promise.all([
+          fetch(`/api/wayback-check?domain=${domain}`),
+          fetch(`/api/spam-check?domain=${domain}`)
+        ]);
+
+        const waybackData = await waybackRes.json();
+        const spamData = await spamRes.json();
+
+        // Format date helper
+        const formatDate = (ts) => {
+          if (!ts) return 'N/A';
+          return `${ts.slice(0,4)}-${ts.slice(4,6)}-${ts.slice(6,8)}`;
+        };
+
+        let html = `
+          <div class="domain-data-grid mb-4">
+            <div class="domain-data-item">
+              <span class="label">Total Snapshots</span>
+              <span class="value">${waybackData.totalSnapshots || 0}</span>
+            </div>
+            <div class="domain-data-item">
+              <span class="label">Archive Risk</span>
+              <span class="value">${waybackData.riskLabel || 'Unknown'}</span>
+            </div>
+            <div class="domain-data-item">
+              <span class="label">Spam Score</span>
+              <span class="value">${spamData.spamScore || 0}/100</span>
+            </div>
+            <div class="domain-data-item">
+              <span class="label">Spam Risk</span>
+              <span class="value">${spamData.riskLabel || 'Unknown'}</span>
+            </div>
+          </div>
+        `;
+
+        if (waybackData.firstCapture) {
+          html += `<p class="text-sm text-gray-500 mb-1">First archived: <strong>${formatDate(waybackData.firstCapture)}</strong></p>`;
+        }
+        if (waybackData.lastCapture) {
+          html += `<p class="text-sm text-gray-500 mb-3">Last archived: <strong>${formatDate(waybackData.lastCapture)}</strong></p>`;
+        }
+
+        if (waybackData.snapshots && waybackData.snapshots.length > 0) {
+          html += `<div class="mt-3"><p class="text-xs font-bold text-gray-500 uppercase mb-2">Recent Snapshots</p><div class="space-y-1 text-xs">`;
+          waybackData.snapshots.slice(0, 5).forEach(s => {
+            html += `<div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800">
+              <span class="text-gray-600 dark:text-gray-400">${formatDate(s.timestamp)}</span>
+              <span class="text-gray-500">${s.status || 'N/A'}</span>
+            </div>`;
+          });
+          html += `</div></div>`;
+        }
+
+        html += `
+          <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <a href="${waybackData.waybackUrl}" target="_blank" class="text-blue-600 hover:underline text-sm">
+              View full history on Wayback Machine →
+            </a>
+          </div>
+          <p class="text-xs text-gray-400 mt-3 text-center">Data from Internet Archive CDX API + ${spamData.source || 'Spam Check'}</p>
+        `;
+
+        document.getElementById('waybackModalBody').innerHTML = html;
+      } catch (e) {
+        document.getElementById('waybackModalBody').innerHTML = '<p class="text-red-500">Failed to check history. Try again.</p>';
+      }
+    }
+
+    function closeWaybackModal() {
+      document.getElementById('waybackModal').classList.add('hidden');
+    }
+
+    // DOMAIN STATUS CHECK
     async function checkDomainStatus(fullDomain, buttonElement) {
       const originalText = buttonElement.innerHTML;
-      buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+      buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
       buttonElement.disabled = true;
 
       try {
         const response = await fetch(`/api/domain-status?domain=${fullDomain}`);
-        let data;
-        try {
-          data = await response.json();
-        } catch (parseError) {
-          throw new Error('Server returned invalid response.');
-        }
-
+        const data = await response.json();
         buttonElement.innerHTML = originalText;
         buttonElement.disabled = false;
-        showStatusModal(fullDomain, data);
 
-      } catch (error) {
-        console.error('Status check error:', error);
+        document.getElementById('statusModal').classList.remove('hidden');
+        document.getElementById('statusModalTitle').textContent = `🔍 ${fullDomain}`;
+        document.getElementById('statusModalBody').innerHTML = `
+          <div class="domain-data-grid">
+            <div class="domain-data-item"><span class="label">Status</span><span class="value">${data.statusLabel || 'Unknown'}</span></div>
+            <div class="domain-data-item"><span class="label">Registrar</span><span class="value">${data.registrar || 'N/A'}</span></div>
+            <div class="domain-data-item"><span class="label">Created</span><span class="value">${data.creationDate !== 'N/A' ? new Date(data.creationDate).toLocaleDateString() : 'N/A'}</span></div>
+            <div class="domain-data-item"><span class="label">Expires</span><span class="value">${data.expiryDate !== 'N/A' ? new Date(data.expiryDate).toLocaleDateString() : 'N/A'}</span></div>
+          </div>
+        `;
+        document.getElementById('statusModalAction').href = data.actionUrl;
+        document.getElementById('statusModalAction').textContent = data.actionLabel;
+      } catch (e) {
         buttonElement.innerHTML = originalText;
         buttonElement.disabled = false;
-        showStatusModal(fullDomain, {
-          status: 'error',
-          statusLabel: '⚠️ Status Check Failed',
-          canRegister: false,
-          actionUrl: `https://www.namecheap.com/domains/registration/results/?domain=${fullDomain}`,
-          actionLabel: 'Check on Namecheap 🔍',
-          registrar: 'N/A',
-          creationDate: 'N/A',
-          expiryDate: 'N/A',
-          statusCodes: ['API error: ' + error.message]
-        });
+        alert('❌ Status check failed.');
       }
-    }
-
-    function showStatusModal(domain, data) {
-      const modal = document.getElementById('statusModal');
-      const title = document.getElementById('statusModalTitle');
-      const body = document.getElementById('statusModalBody');
-      const actionBtn = document.getElementById('statusModalAction');
-
-      const statusIcons = {
-        available: '🛒', active: '🔒', pendingDelete: '⏳',
-        redemption: '🔄', suspended: '⚠️', expiredActive: '⏰',
-        unknown: '❓', error: '⚠️'
-      };
-
-      const icon = statusIcons[data.status] || 'ℹ️';
-      title.innerHTML = `${icon} ${data.statusLabel || 'Domain Status'}`;
-
-      let bodyHtml = `
-        <div class="domain-data-grid">
-          <div class="domain-data-item"><span class="label">Domain</span><span class="value font-mono text-blue-600 dark:text-blue-400">${domain}</span></div>
-          <div class="domain-data-item"><span class="label">Status</span><span class="value">${data.statusLabel || 'Unknown'}</span></div>
-          <div class="domain-data-item"><span class="label">Registrar</span><span class="value">${data.registrar || 'N/A'}</span></div>
-          <div class="domain-data-item"><span class="label">Creation Date</span><span class="value">${data.creationDate && data.creationDate !== 'N/A' ? new Date(data.creationDate).toLocaleDateString() : 'N/A'}</span></div>
-          <div class="domain-data-item"><span class="label">Expiry Date</span><span class="value">${data.expiryDate && data.expiryDate !== 'N/A' ? new Date(data.expiryDate).toLocaleDateString() : 'N/A'}</span></div>
-          <div class="domain-data-item"><span class="label">Registry Status</span><span class="value text-xs">${(data.statusCodes || []).join(', ') || 'N/A'}</span></div>
-        </div>
-      `;
-
-      if (data.status === 'active') {
-        bodyHtml += `<div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm"><i class="fas fa-info-circle text-red-500 mr-1"></i><strong>This domain is already registered.</strong> Check auction platforms for purchase opportunities.</div>`;
-      } else if (data.status === 'pendingDelete') {
-        bodyHtml += `<div class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm"><i class="fas fa-clock text-yellow-500 mr-1"></i><strong>Dropping soon!</strong> This domain will be released within 5 days.</div>`;
-      } else if (data.status === 'redemption') {
-        bodyHtml += `<div class="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg text-sm"><i class="fas fa-sync text-orange-500 mr-1"></i><strong>In redemption period.</strong> May drop in 30–60 days.</div>`;
-      } else if (data.status === 'available') {
-        bodyHtml += `<div class="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm"><i class="fas fa-check-circle text-green-500 mr-1"></i><strong>Available!</strong> You can register this domain at standard price.</div>`;
-      }
-
-      body.innerHTML = bodyHtml;
-      actionBtn.href = data.actionUrl || `https://www.namecheap.com/domains/registration/results/?domain=${domain}`;
-      actionBtn.innerHTML = data.actionLabel || 'Check Now 🔍';
-
-      modal.classList.remove('hidden');
     }
 
     function closeStatusModal() {
       document.getElementById('statusModal').classList.add('hidden');
     }
 
-    // ============================================
-    // SECTION 19: LIVE WHOIS MODAL
-    // ============================================
-    async function fetchLiveData(domainId) {
-      const domain = currentDomains.find(d => d.id === domainId);
-      if (!domain) {
-        showModal('error', 'Domain not found.', 'The domain you selected could not be located.', false);
-        return;
-      }
-
-      const fullDomain = `${domain.domain}${domain.tld}`;
-      showModal('loading', `Checking ${fullDomain}...`, 'Contacting WHOIS servers...', false);
-
-      try {
-        const response = await fetch(`/api/domain-whois?domain=${fullDomain}`);
-        const data = await response.json();
-
-        if (response.ok && data && !data.error) {
-          const statusBadge = data.status && data.status !== 'N/A' 
-            ? `<span class="status-badge success">Active</span>` 
-            : `<span class="status-badge warning">Unknown</span>`;
-
-          const htmlContent = `
-            <div class="domain-data-grid">
-              <div class="domain-data-item"><span class="label">Domain</span><span class="value font-mono text-blue-600 dark:text-blue-400">${fullDomain}</span></div>
-              <div class="domain-data-item"><span class="label">Status</span><span class="value">${statusBadge}</span></div>
-              <div class="domain-data-item"><span class="label">Registrar</span><span class="value">${data.registrar || 'N/A'}</span></div>
-              <div class="domain-data-item"><span class="label">Creation Date</span><span class="value">${data.creationDate ? new Date(data.creationDate).toLocaleDateString() : 'N/A'}</span></div>
-              <div class="domain-data-item"><span class="label">Expiration Date</span><span class="value">${data.expiryDate ? new Date(data.expiryDate).toLocaleDateString() : 'N/A'}</span></div>
-              <div class="domain-data-item"><span class="label">Nameservers</span><span class="value text-xs font-mono">${data.nameservers || 'N/A'}</span></div>
-            </div>
-            <p class="text-xs text-gray-400 mt-3 text-center">Data from RDAP (Real-Time WHOIS)</p>
-          `;
-          showModal('success', `✅ Live Data for ${fullDomain}`, htmlContent, true);
-        } else {
-          showModal('error', `🔍 Domain Not Available`, 
-            `We couldn't find WHOIS records for <strong>${fullDomain}</strong>.<br><br>This usually means the domain is <strong>not registered</strong> or <strong>not yet active</strong>.`, true);
-        }
-      } catch (error) {
-        showModal('error', '⚠️ Connection Error', 'Failed to connect to the WHOIS service.', false);
-      }
-    }
-
-    function showModal(state, title, message, isHtml = false) {
-      const modal = document.getElementById('liveDataModal');
-      const card = document.getElementById('liveDataModalCard');
-      const titleText = document.getElementById('modalTitleText');
-      const icon = document.getElementById('modalIcon');
-      const spinner = document.getElementById('modalSpinner');
-      const msgContainer = document.getElementById('modalMessage');
-
-      modal.classList.remove('hidden');
-      void card.offsetWidth;
-
-      if (state === 'loading') {
-        icon.textContent = '⏳';
-        titleText.textContent = title;
-        spinner.classList.remove('hidden');
-        msgContainer.innerHTML = message;
-        msgContainer.className = 'text-center text-gray-500 dark:text-gray-400';
-      } else {
-        spinner.classList.add('hidden');
-        titleText.textContent = title;
-        
-        if (isHtml || (message.includes('<') && message.includes('>'))) {
-          msgContainer.innerHTML = message;
-        } else {
-          msgContainer.textContent = message;
-        }
-        
-        if (state === 'success') {
-          icon.textContent = '✅';
-          msgContainer.className = 'w-full';
-        } else if (state === 'error') {
-          icon.textContent = '❌';
-          msgContainer.className = 'text-center text-red-600 dark:text-red-400';
-        } else {
-          icon.textContent = 'ℹ️';
-          msgContainer.className = 'text-center';
-        }
-      }
-    }
-
-    function closeLiveDataModal() {
-      document.getElementById('liveDataModal').classList.add('hidden');
-    }
-
-    document.getElementById('closeLiveDataModal').addEventListener('click', closeLiveDataModal);
-    document.getElementById('modalCloseBtn').addEventListener('click', closeLiveDataModal);
-    document.getElementById('liveDataModal').addEventListener('click', (e) => {
-      if (e.target === document.getElementById('liveDataModal')) closeLiveDataModal();
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeLiveDataModal();
-        closeStatusModal();
-      }
-    });
-
-    // ============================================
-    // SECTION 20: SEARCH & FILTER
-    // ============================================
+    // SEARCH & FILTER
     function applyFilters() {
       const query = searchInput.value.toLowerCase().trim();
       const sortBy = sortSelect.value;
-      
       let results = [...currentDomains];
-      
-      if (query) {
-        results = results.filter(d => 
-          d.domain.includes(query) || 
-          d.tld.includes(query) ||
-          (d.category && d.category.toLowerCase().includes(query))
-        );
-      }
-      
+      if (query) results = results.filter(d => d.domain.includes(query) || d.tld.includes(query));
       results.sort((a, b) => {
         if (sortBy === 'score') return (b.flippabilityScore || 0) - (a.flippabilityScore || 0);
         if (sortBy === 'traffic') return (b.traffic || 0) - (a.traffic || 0);
@@ -825,22 +498,18 @@
         if (sortBy === 'name') return (a.domain || '').localeCompare(b.domain || '');
         return 0;
       });
-      
       filteredDomains = results;
       renderDomains(results);
     }
 
-    // ============================================
-    // SECTION 21: COMPARE LOGIC
-    // ============================================
+    // COMPARE
     window.toggleCompare = function(id) {
       const domain = currentDomains.find(d => d.id === id);
       if (!domain) return;
       const index = compareList.findIndex(c => c.id === id);
-      if (index > -1) {
-        compareList.splice(index, 1);
-      } else {
-        if (compareList.length >= 3) { alert('Max 3 domains for comparison.'); return; }
+      if (index > -1) compareList.splice(index, 1);
+      else {
+        if (compareList.length >= 3) { alert('Max 3 domains.'); return; }
         compareList.push(domain);
       }
       updateCompareUI();
@@ -853,7 +522,7 @@
       if (compareList.length > 0) {
         compareBar.style.display = 'flex';
         compareListDiv.innerHTML = compareList.map(d =>
-          `<span class="bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full text-sm flex items-center gap-2 text-gray-800 dark:text-gray-200">${d.domain}${d.tld} <button onclick="toggleCompare(${d.id})" class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">&times;</button></span>`
+          `<span class="bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full text-sm flex items-center gap-2">${d.domain}${d.tld} <button onclick="toggleCompare(${d.id})" class="text-red-500">&times;</button></span>`
         ).join('');
       } else {
         compareBar.style.display = 'none';
@@ -866,88 +535,70 @@
       document.getElementById('comparisonTable').innerHTML = `
         <table class="w-full text-sm text-left">
           <thead><tr class="border-b border-gray-200 dark:border-gray-700">
-            <th class="p-3 text-gray-800 dark:text-gray-200">Metric</th>
-            ${compareList.map(d => `<th class="p-3 text-center text-gray-800 dark:text-gray-200">${d.domain}${d.tld}</th>`).join('')}
+            <th class="p-3">Metric</th>
+            ${compareList.map(d => `<th class="p-3 text-center">${d.domain}${d.tld}</th>`).join('')}
           </tr></thead>
           <tbody>
-            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="p-3 font-bold">DA</td>${compareList.map(d => `<td class="p-3 text-center">${d.da}</td>`).join('')}</tr>
-            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="p-3 font-bold">Backlinks</td>${compareList.map(d => `<td class="p-3 text-center">${d.backlinks}</td>`).join('')}</tr>
-            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="p-3 font-bold">Traffic</td>${compareList.map(d => `<td class="p-3 text-center">${d.traffic}</td>`).join('')}</tr>
-            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="p-3 font-bold">Age</td>${compareList.map(d => `<td class="p-3 text-center">${d.age}</td>`).join('')}</tr>
-            <tr class="border-b border-gray-100 dark:border-gray-800"><td class="p-3 font-bold">🏆 Flip Score</td>${compareList.map(d => `<td class="p-3 text-center font-bold ${d.flippabilityScore >= 70 ? 'text-green-600' : 'text-yellow-600'}">${d.flippabilityScore}</td>`).join('')}</tr>
-            <tr><td class="p-3 font-bold">Brandability</td>${compareList.map(d => `<td class="p-3 text-center">${d.brandability}</td>`).join('')}</tr>
+            <tr class="border-b"><td class="p-3 font-bold">DA</td>${compareList.map(d => `<td class="p-3 text-center">${d.da}</td>`).join('')}</tr>
+            <tr class="border-b"><td class="p-3 font-bold">Backlinks</td>${compareList.map(d => `<td class="p-3 text-center">${d.backlinks}</td>`).join('')}</tr>
+            <tr class="border-b"><td class="p-3 font-bold">Traffic</td>${compareList.map(d => `<td class="p-3 text-center">${d.traffic}</td>`).join('')}</tr>
+            <tr class="border-b"><td class="p-3 font-bold">Age</td>${compareList.map(d => `<td class="p-3 text-center">${d.age}</td>`).join('')}</tr>
+            <tr><td class="p-3 font-bold">🏆 Flip Score</td>${compareList.map(d => `<td class="p-3 text-center font-bold">${d.flippabilityScore}</td>`).join('')}</tr>
           </tbody>
         </table>
       `;
     });
 
-    document.getElementById('closeModal').addEventListener('click', () => {
-      document.getElementById('compareModal').classList.add('hidden');
-    });
-    document.getElementById('clearCompare').addEventListener('click', () => {
-      compareList = [];
-      updateCompareUI();
-      renderDomains(filteredDomains);
-    });
-    document.getElementById('compareModal').addEventListener('click', (e) => {
-      if (e.target === document.getElementById('compareModal')) {
-        document.getElementById('compareModal').classList.add('hidden');
-      }
-    });
+    document.getElementById('closeModal').addEventListener('click', () => document.getElementById('compareModal').classList.add('hidden'));
+    document.getElementById('clearCompare').addEventListener('click', () => { compareList = []; updateCompareUI(); renderDomains(filteredDomains); });
 
-    // ============================================
-    // SECTION 22: CSV EXPORT
-    // ============================================
-    document.getElementById('exportBtn').addEventListener('click', function() {
-      const dataToExport = filteredDomains.length > 0 ? filteredDomains : currentDomains;
-      if (dataToExport.length === 0) return;
-      
-      const headers = ['Domain', 'TLD', 'DA', 'PA', 'Backlinks', 'Traffic', 'Age', 'Flip Score', 'Brandability'];
-      const rows = dataToExport.map(d => [
-        d.domain, d.tld, d.da || 'N/A', d.pa || 'N/A', d.backlinks || 'N/A', 
-        d.traffic || 'N/A', d.age || 'N/A', d.flippabilityScore || 'N/A', d.brandability || 'N/A'
-      ]);
-      
-      const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    // CSV EXPORT
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const data = filteredDomains.length > 0 ? filteredDomains : currentDomains;
+      if (data.length === 0) return;
+      const headers = ['Domain','TLD','DA','Backlinks','Traffic','Age','Flip Score','Brandability'];
+      const rows = data.map(d => [d.domain,d.tld,d.da||'N/A',d.backlinks||'N/A',d.traffic||'N/A',d.age||'N/A',d.flippabilityScore||'N/A',d.brandability||'N/A']);
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
+      a.href = URL.createObjectURL(blob);
       a.download = `dropscore_${new Date().toISOString().slice(0,10)}.csv`;
       a.click();
-      URL.revokeObjectURL(url);
     });
 
-    // ============================================
-    // SECTION 23: LOAD STORED DOMAINS
-    // ============================================
-    function loadStoredDomains() {
-      const stored = localStorage.getItem('dropscore_domains');
-      if (stored) {
-        try {
-          const domains = JSON.parse(stored);
-          if (domains && domains.length > 0) {
-            const limitedDomains = domains.slice(0, FREE_TIER_LIMIT);
-            currentDomains = limitedDomains;
-            filteredDomains = [...currentDomains];
-            renderDomains(filteredDomains);
-            filterSection.classList.remove('hidden');
-            exportBtn.disabled = false;
-            fetchStatus.innerHTML = `<i class="fas fa-check-circle mr-1 text-green-500"></i> ${limitedDomains.length} domains loaded from cache (Free Tier limit).`;
-          }
-        } catch (e) {}
-      }
-    }
+    // UPGRADE MODAL
+    function showUpgradeModal() { document.getElementById('upgradeModal').classList.remove('hidden'); }
+    function closeUpgradeModal() { document.getElementById('upgradeModal').classList.add('hidden'); }
+    document.getElementById('upgradeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('upgradeEmail').value;
+      await fetch('/api/waitlist?source=upgrade_interest', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      alert('✅ You are on the Pro launch list!');
+      closeUpgradeModal();
+    });
 
-    // ============================================
-    // SECTION 24: EVENT LISTENERS & INIT
-    // ============================================
+    // EVENT LISTENERS
     fetchBtn.addEventListener('click', fetchLiveDomains);
     searchInput.addEventListener('input', applyFilters);
     sortSelect.addEventListener('change', applyFilters);
 
-    loadStoredDomains();
-  </script>
+    // Close modals on backdrop click
+    ['compareModal','statusModal','liveDataModal','waybackModal','upgradeModal'].forEach(id => {
+      document.getElementById(id).addEventListener('click', (e) => {
+        if (e.target === document.getElementById(id)) document.getElementById(id).classList.add('hidden');
+      });
+    });
 
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        ['compareModal','statusModal','liveDataModal','waybackModal','upgradeModal'].forEach(id => {
+          document.getElementById(id).classList.add('hidden');
+        });
+      }
+    });
+  </script>
 </body>
 </html>
