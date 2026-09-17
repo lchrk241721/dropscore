@@ -22,13 +22,12 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    message: 'DropScore API is running',
-    features: ['CatchDoms', 'RDAP', 'Wayback', 'Spam Check', 'WHOIS', 'DA']
+    message: 'DropScore API is running'
   });
 });
 
 // ============================================
-// 2. HELPER: Domain status via RDAP
+// 2. HELPER: Check domain status via RDAP
 // ============================================
 async function getDomainStatus(domain) {
   try {
@@ -42,6 +41,7 @@ async function getDomainStatus(domain) {
 
     clearTimeout(timeout);
 
+    // 404 = domain is NOT registered → available
     if (response.status === 404) {
       return { status: 'available', statusLabel: '🛒 Available', statusColor: 'green' };
     }
@@ -63,7 +63,9 @@ async function getDomainStatus(domain) {
       return { status: 'suspended', statusLabel: '⚠️ Suspended', statusColor: 'red' };
     }
 
+    // If CatchDoms returned it, and it's registered, it's likely in auction
     return { status: 'auction', statusLabel: '🏷️ In Auction', statusColor: 'purple' };
+
   } catch (e) {
     return { status: 'unknown', statusLabel: '❓ Unknown', statusColor: 'gray' };
   }
@@ -77,10 +79,10 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
   try {
     console.log('📡 Connecting to CatchDoms...');
 
-    const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js');
+    const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
     const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 
-    const transport = new SSEClientTransport(new URL(CATCHDOMS_FREE_URL));
+    const transport = new StreamableHTTPClientTransport(new URL(CATCHDOMS_FREE_URL));
     client = new Client({ name: 'dropscore-mvp', version: '1.0.0' }, { capabilities: {} });
 
     await client.connect(transport);
@@ -104,15 +106,18 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       }
     }
 
-    console.log(`📦 Received ${domainsList.length} domains`);
+    console.log(`📦 Received ${domainsList.length} domains from CatchDoms`);
 
     if (domainsList.length === 0) {
       return res.json({
-        success: false, count: 0, domains: [],
+        success: false,
+        count: 0,
+        domains: [],
         message: 'CatchDoms returned no domains. Please try again in a moment.'
       });
     }
 
+    // Transform to our format
     const transformed = domainsList.map((d, index) => {
       const domainName = d.domain || d.name || `unknown${index}.com`;
       const parts = domainName.split('.');
@@ -147,8 +152,9 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       };
     });
 
-    // Enrich with status
+    // Enrich with status (parallel batches of 5)
     console.log(`🔍 Checking status for ${transformed.length} domains...`);
+
     const BATCH_SIZE = 5;
     const enriched = [];
 
@@ -166,6 +172,7 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       }
     }
 
+    // Log summary
     const summary = enriched.reduce((acc, d) => {
       acc[d.status] = (acc[d.status] || 0) + 1;
       return acc;
@@ -182,75 +189,38 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
 
   } catch (error) {
     console.error('❌ CatchDoms error:', error.message);
-    res.json({ success: false, count: 0, domains: [], message: `Error: ${error.message}` });
-  } finally {
-    if (client) { try { await client.close(); } catch (e) {} }
-  }
-});
-
-// ============================================
-// 4. WHOIS LOOKUP (RDAP) — RESTORED
-// ============================================
-app.get('/api/domain-whois', async (req, res) => {
-  const { domain } = req.query;
-  if (!domain) return res.status(400).json({ error: 'Domain required' });
-
-  try {
-    const response = await fetch(`https://rdap.org/domain/${domain}`, {
-      headers: { 'Accept': 'application/rdap+json, application/json' },
-      signal: AbortSignal.timeout(10000)
-    });
-
-    if (response.status === 404) {
-      return res.status(404).json({ error: 'Domain not found' });
-    }
-
-    if (!response.ok) {
-      throw new Error(`RDAP returned ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Extract registrar name from vcardArray
-    let registrar = 'N/A';
-    const registrarEntity = data.entities?.find(e => e.roles?.includes('registrar'));
-    if (registrarEntity?.vcardArray?.[1]) {
-      const fnEntry = registrarEntity.vcardArray[1].find(item => item[0] === 'fn');
-      if (fnEntry && fnEntry[3]) registrar = fnEntry[3];
-    }
-
     res.json({
-      domain: domain,
-      creationDate: data.events?.find(e => e.eventAction === 'registration')?.eventDate || 'N/A',
-      expiryDate: data.events?.find(e => e.eventAction === 'expiration')?.eventDate || 'N/A',
-      lastChanged: data.events?.find(e => e.eventAction === 'last changed')?.eventDate || 'N/A',
-      registrar: registrar,
-      nameservers: data.nameservers?.map(ns => ns.ldhName).join(', ') || 'N/A',
-      status: (data.status || []).join(', ') || 'N/A',
-      handle: data.handle || 'N/A',
-      ldhName: data.ldhName || domain
+      success: false,
+      count: 0,
+      domains: [],
+      message: `Error: ${error.message}`
     });
-
-  } catch (error) {
-    console.error('WHOIS error:', error.message);
-    res.status(500).json({ error: 'Failed to fetch WHOIS data', details: error.message });
+  } finally {
+    if (client) {
+      try { await client.close(); } catch (e) {}
+    }
   }
 });
 
 // ============================================
-// 5. WAYBACK MACHINE CHECK (FULL HISTORY)
+// 4. WAYBACK MACHINE CHECK (FULL HISTORY)
 // ============================================
 app.get('/api/wayback-check', async (req, res) => {
   const { domain } = req.query;
   if (!domain) return res.status(400).json({ error: 'Domain required' });
 
   try {
+    // Request ALL captures for the domain, not just the latest 30.
+    // We use fl to select only the fields we need (timestamp, status).
+    // The API returns a JSON array where the first row is the column header.
     const cdxUrl = `https://web.archive.org/cdx/search/cdx?url=${domain}&output=json&fl=timestamp,statuscode&collapse=digest`;
+
     const response = await fetch(cdxUrl, { signal: AbortSignal.timeout(20000) });
 
     let allSnapshots = [];
     if (response.ok) {
       const data = await response.json();
+      // data[0] is the header row; the rest are snapshot records
       if (data.length > 1) {
         allSnapshots = data.slice(1).map(row => ({
           timestamp: row[0],
@@ -259,6 +229,7 @@ app.get('/api/wayback-check', async (req, res) => {
       }
     }
 
+    // Prepare the summary data
     let firstCapture = null;
     let lastCapture = null;
     let totalSnapshots = allSnapshots.length;
@@ -268,43 +239,61 @@ app.get('/api/wayback-check', async (req, res) => {
       firstCapture = allSnapshots[0].timestamp;
       lastCapture = allSnapshots[allSnapshots.length - 1].timestamp;
 
+      // Build a per-year summary for the last 5 years of activity
       allSnapshots.forEach(s => {
         const year = s.timestamp.slice(0, 4);
         yearlySummary[year] = (yearlySummary[year] || 0) + 1;
       });
 
+      // Sort years descending so the most recent activity appears first
       yearlySummary = Object.entries(yearlySummary)
         .sort((a, b) => b[0].localeCompare(a[0]))
         .slice(0, 5);
     }
 
+    // Determine a simple risk level based on archive volume
     let riskLevel = 'low';
     let riskLabel = '✅ Clean History';
-    if (totalSnapshots === 0) { riskLevel = 'medium'; riskLabel = '⚠️ No Archive History'; }
-    else if (totalSnapshots > 100) { riskLevel = 'high'; riskLabel = '🚨 Heavy Archive Activity'; }
+    if (totalSnapshots === 0) {
+      riskLevel = 'medium';
+      riskLabel = '⚠️ No Archive History';
+    } else if (totalSnapshots > 100) {
+      riskLevel = 'high';
+      riskLabel = '🚨 Heavy Archive Activity';
+    }
 
     res.json({
-      domain, totalSnapshots, firstCapture, lastCapture, yearlySummary,
-      riskLevel, riskLabel,
+      domain,
+      totalSnapshots,
+      firstCapture,
+      lastCapture,
+      yearlySummary,
+      riskLevel,
+      riskLabel,
       waybackUrl: `https://web.archive.org/web/*/${domain}`
     });
+
   } catch (error) {
     console.error('Wayback error:', error.message);
     res.json({
-      domain, totalSnapshots: 0, riskLevel: 'unknown',
-      riskLabel: '❓ Could not check', error: error.message,
+      domain,
+      totalSnapshots: 0,
+      riskLevel: 'unknown',
+      riskLabel: '❓ Could not check',
+      error: error.message,
       waybackUrl: `https://web.archive.org/web/*/${domain}`
     });
   }
 });
 
 // ============================================
-// 6. SPAM CHECK
+// 5. SPAM CHECK
 // ============================================
 app.get('/api/spam-check', async (req, res) => {
   const { domain } = req.query;
   if (!domain) return res.status(400).json({ error: 'Domain required' });
 
+  // Estimate from domain characteristics (always works)
   const name = domain.split('.')[0] || '';
   let score = 5;
   if (/\d/.test(name)) score += 15;
@@ -321,7 +310,7 @@ app.get('/api/spam-check', async (req, res) => {
 });
 
 // ============================================
-// 7. DOMAIN AUTHORITY (Crawly)
+// 6. DOMAIN AUTHORITY (Crawly)
 // ============================================
 app.get('/api/domain-authority', async (req, res) => {
   const { domain } = req.query;
@@ -381,7 +370,7 @@ app.get('/api/domain-authority', async (req, res) => {
 });
 
 // ============================================
-// 8. DOMAIN STATUS (RDAP direct)
+// 7. DOMAIN STATUS (RDAP direct)
 // ============================================
 app.get('/api/domain-status', async (req, res) => {
   const { domain } = req.query;
@@ -417,18 +406,11 @@ app.get('/api/domain-status', async (req, res) => {
       status = 'redemption'; statusLabel = '🔄 In Redemption'; actionLabel = 'Watch 🔄';
     }
 
-    let registrar = 'N/A';
-    const reg = data.entities?.find(e => e.roles?.includes('registrar'));
-    if (reg?.vcardArray?.[1]) {
-      const fn = reg.vcardArray[1].find(i => i[0] === 'fn');
-      if (fn?.[3]) registrar = fn[3];
-    }
-
     res.json({
       domain, status, statusLabel, actionUrl, actionLabel,
       creationDate: data.events?.find(e => e.eventAction === 'registration')?.eventDate || 'N/A',
       expiryDate: data.events?.find(e => e.eventAction === 'expiration')?.eventDate || 'N/A',
-      registrar
+      registrar: 'N/A'
     });
   } catch (error) {
     res.json({
@@ -441,7 +423,7 @@ app.get('/api/domain-status', async (req, res) => {
 });
 
 // ============================================
-// 9. WAITLIST (Make.com)
+// 8. WAITLIST (Make.com)
 // ============================================
 app.post('/api/waitlist', async (req, res) => {
   const { email } = req.body;
@@ -467,7 +449,7 @@ app.post('/api/waitlist', async (req, res) => {
 });
 
 // ============================================
-// 10. ROBOTS.TXT & SITEMAP
+// 9. ROBOTS.TXT & SITEMAP
 // ============================================
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain');
@@ -502,7 +484,7 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 // ============================================
-// 11. CATCH-ALL
+// 10. CATCH-ALL
 // ============================================
 app.get('/api/*', (req, res) => {
   res.status(404).json({ error: 'Not found', path: req.path });
@@ -517,5 +499,4 @@ app.get('*', (req, res) => {
 // ============================================
 app.listen(PORT, () => {
   console.log(`✅ DropScore running on http://localhost:${PORT}`);
-  console.log(`✅ WHOIS check restored at /api/domain-whois`);
 });

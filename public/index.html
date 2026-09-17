@@ -307,6 +307,17 @@
     </div>
   </div>
 
+  <!-- LIVE WHOIS MODAL (RESTORED) -->
+<div id="whoisModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full p-6 max-h-[80vh] overflow-y-auto">
+    <div class="flex justify-between items-center mb-4">
+      <h3 id="whoisModalTitle" class="text-lg font-bold text-gray-900 dark:text-white">🔎 WHOIS Data</h3>
+      <button onclick="closeWhoisModal()" class="text-gray-400 text-2xl">&times;</button>
+    </div>
+    <div id="whoisModalBody" class="text-gray-700 dark:text-gray-300">Loading...</div>
+  </div>
+</div>
+
   <!-- STATUS MODAL -->
   <div id="statusModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
     <div class="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full p-6">
@@ -519,6 +530,7 @@
                 ${isInCompare ? '✓ Compare' : '+ Compare'}
               </button>
               <button onclick="checkWayback('${fullDomain}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-full">🕰️ History</button>
+              <button onclick="checkWhois('${fullDomain}')" class="text-xs bg-slate-700 hover:bg-slate-800 text-white px-3 py-1 rounded-full">🔎 WHOIS</button>
               <button onclick="fetchRealDA('${fullDomain}', ${d.id}, this)" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-full">📊 Get DA</button>
               ${actionBtn}
             </div>
@@ -566,6 +578,81 @@
         display.innerHTML = `<p class="text-red-500 text-xs">❌ Could not fetch DA.</p>`;
       }
     }
+
+    // ============================================
+// WHOIS CHECK (RESTORED)
+// ============================================
+async function checkWhois(domain) {
+  document.getElementById('whoisModal').classList.remove('hidden');
+  document.getElementById('whoisModalTitle').textContent = `🔎 ${domain} WHOIS`;
+  document.getElementById('whoisModalBody').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching live WHOIS data...';
+
+  try {
+    const response = await fetch(`/api/domain-whois?domain=${domain}`);
+
+    if (response.status === 404) {
+      document.getElementById('whoisModalBody').innerHTML = `
+        <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+          <i class="fas fa-check-circle text-green-500 mr-1"></i>
+          <strong>This domain is available for registration.</strong>
+          <p class="text-xs text-gray-500 mt-2">No WHOIS records exist — you can register it now.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      document.getElementById('whoisModalBody').innerHTML = `<p class="text-red-500">❌ ${data.error}</p>`;
+      return;
+    }
+
+    const fmtDate = (d) => d && d !== 'N/A' ? new Date(d).toLocaleDateString() : 'N/A';
+
+    document.getElementById('whoisModalBody').innerHTML = `
+      <div class="domain-data-grid">
+        <div class="domain-data-item">
+          <span class="label">Domain</span>
+          <span class="value font-mono text-blue-600 dark:text-blue-400">${data.domain}</span>
+        </div>
+        <div class="domain-data-item">
+          <span class="label">Handle</span>
+          <span class="value text-xs">${data.handle || 'N/A'}</span>
+        </div>
+        <div class="domain-data-item">
+          <span class="label">Registrar</span>
+          <span class="value">${data.registrar || 'N/A'}</span>
+        </div>
+        <div class="domain-data-item">
+          <span class="label">Status</span>
+          <span class="value text-xs">${data.status || 'N/A'}</span>
+        </div>
+        <div class="domain-data-item">
+          <span class="label">Created</span>
+          <span class="value">${fmtDate(data.creationDate)}</span>
+        </div>
+        <div class="domain-data-item">
+          <span class="label">Expires</span>
+          <span class="value">${fmtDate(data.expiryDate)}</span>
+        </div>
+        <div class="domain-data-item" style="grid-column: span 2;">
+          <span class="label">Nameservers</span>
+          <span class="value text-xs font-mono">${data.nameservers || 'N/A'}</span>
+        </div>
+      </div>
+      <p class="text-xs text-gray-400 mt-3 text-center">Live data from RDAP (Real-Time WHOIS)</p>
+    `;
+
+  } catch (error) {
+    console.error('WHOIS error:', error);
+    document.getElementById('whoisModalBody').innerHTML = '<p class="text-red-500">❌ Failed to fetch WHOIS data. Try again.</p>';
+  }
+}
+
+function closeWhoisModal() {
+  document.getElementById('whoisModal').classList.add('hidden');
+}
 
     // WAYBACK
     // ============================================
@@ -795,7 +882,7 @@
     sortSelect.addEventListener('change', applyFilters);
     statusFilter.addEventListener('change', applyFilters);
 
-    ['compareModal','statusModal','waybackModal','upgradeModal'].forEach(id => {
+    ['compareModal','statusModal','waybackModal','upgradeModal','whoisModal'].forEach(id => {
       document.getElementById(id).addEventListener('click', (e) => {
         if (e.target === document.getElementById(id)) document.getElementById(id).classList.add('hidden');
       });
@@ -803,7 +890,7 @@
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        ['compareModal','statusModal','waybackModal','upgradeModal'].forEach(id => {
+        ['compareModal','statusModal','waybackModal','upgradeModal','whoisModal'].forEach(id => {
           document.getElementById(id).classList.add('hidden');
         });
       }
