@@ -222,6 +222,14 @@
             <option value="da">📈 Sort by DA</option>
             <option value="name">🔤 Sort by Name</option>
           </select>
+          <select id="statusFilter" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white">
+            <option value="all">📋 All Statuses</option>
+            <option value="available">🛒 Available Only</option>
+            <option value="auction">🏷️ In Auction</option>
+            <option value="pendingDelete">⏳ Dropping Soon</option>
+            <option value="redemption">🔄 In Redemption</option>
+            <option value="registered">🔒 Registered</option>
+          </select>
           <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-bold text-sm disabled:opacity-50" disabled>
             <i class="fas fa-file-csv"></i> Export CSV
           </button>
@@ -409,65 +417,94 @@
         fetchIcon.className = 'fas fa-cloud-download-alt';
       }, 1000);
     }
-
-    // RENDER DOMAIN CARDS
+    //render domains
     function renderDomains(domains) {
-      if (!domains || domains.length === 0) {
-        grid.innerHTML = '';
-        if (currentDomains.length === 0) emptyState.classList.remove('hidden');
-        else noResultsState.classList.remove('hidden');
-        resultCount.textContent = '';
-        return;
-      }
-      emptyState.classList.add('hidden');
-      noResultsState.classList.add('hidden');
+  if (!domains || domains.length === 0) {
+    grid.innerHTML = '';
+    if (currentDomains.length === 0) emptyState.classList.remove('hidden');
+    else noResultsState.classList.remove('hidden');
+    resultCount.textContent = '';
+    return;
+  }
+  emptyState.classList.add('hidden');
+  noResultsState.classList.add('hidden');
 
-      grid.innerHTML = domains.map(d => {
-        const isInCompare = compareList.some(c => c.id === d.id);
-        const scoreColor = d.flippabilityScore >= 70 ? 'text-green-600 dark:text-green-400' :
-                          (d.flippabilityScore >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400');
-        return `
-          <div class="bg-white dark:bg-gray-900 border ${isInCompare ? 'border-purple-500' : 'border-gray-200 dark:border-gray-800'} rounded-xl p-4 card-hover shadow-sm">
-            <div class="flex justify-between items-start">
-              <div class="flex-1 min-w-0">
-                <span class="text-xs text-gray-500">${d.category || 'Expired'}</span>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white truncate">${d.domain}${d.tld}</h3>
-              </div>
-              <span class="text-[10px] font-bold px-2 py-1 rounded-full ${d.isHot ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}">${d.isHot ? '🔥 HOT' : ''}</span>
-            </div>
-            <div class="flex flex-wrap gap-2 mt-3 text-xs">
-              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">DA: ${d.da || 'N/A'}</span>
-              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">BL: ${d.backlinks || 'N/A'}</span>
-              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">🚦 ${d.traffic || 'N/A'}</span>
-              <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">📅 ${d.age || 'N/A'}y</span>
-            </div>
-            <div class="mt-3">
-              <span class="text-xs text-gray-500">Flip Score:</span>
-              <span class="text-sm font-bold ${scoreColor}">${d.flippabilityScore || 'N/A'}</span>
-              <span class="text-[10px] text-gray-500 ml-2">${d.brandability || '⭐ Medium'}</span>
-            </div>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button onclick="toggleCompare(${d.id})" class="text-xs ${isInCompare ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} hover:bg-purple-700 hover:text-white px-3 py-1 rounded-full">
-                ${isInCompare ? '✓ In Compare' : '+ Compare'}
-              </button>
-              <button onclick="checkWayback('${d.domain}${d.tld}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-full">
-                🕰️ History
-              </button>
-              <button onclick="fetchRealDA('${d.domain}${d.tld}', ${d.id}, this)" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-full">
-                📊 Get DA
-              </button>
-              <button onclick="checkDomainStatus('${d.domain}${d.tld}', this)" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full">
-                Check Status 🔍
-              </button>
-            </div>
-            <div id="daDisplay-${d.id}" class="mt-2 text-xs hidden"></div>
-          </div>
-        `;
-      }).join('');
+  grid.innerHTML = domains.map(d => {
+    const isInCompare = compareList.some(c => c.id === d.id);
+    const scoreColor = d.flippabilityScore >= 70 ? 'text-green-600 dark:text-green-400' :
+                      (d.flippabilityScore >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400');
 
-      resultCount.textContent = `Showing ${domains.length} of ${currentDomains.length} domains`;
+    // Status badge styling
+    const statusStyles = {
+      'green':  'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300',
+      'yellow': 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300',
+      'orange': 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300',
+      'amber':  'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300',
+      'purple': 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300',
+      'red':    'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300',
+      'gray':   'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+    };
+    const statusClass = statusStyles[d.statusColor] || statusStyles['gray'];
+
+    // Action button per status
+    let actionButton = '';
+    const fullDomain = `${d.domain}${d.tld}`;
+
+    if (d.status === 'available') {
+      actionButton = `<a href="https://www.namecheap.com/domains/registration/results/?domain=${fullDomain}" target="_blank" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-full font-semibold">Register 🛒</a>`;
+    } else if (d.status === 'auction') {
+      actionButton = `<a href="https://auctions.godaddy.com/trpItemListing.aspx?miid=1&domainToCheck=${fullDomain}" target="_blank" class="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-full font-semibold">Bid Now 🏷️</a>`;
+    } else if (d.status === 'pendingDelete') {
+      actionButton = `<span class="text-xs bg-yellow-600 text-white px-3 py-1 rounded-full font-semibold">Watch for Drop ⏳</span>`;
+    } else {
+      actionButton = `<a href="https://www.namecheap.com/domains/registration/results/?domain=${fullDomain}" target="_blank" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full font-semibold">Check 🔍</a>`;
     }
 
+    return `
+      <div class="bg-white dark:bg-gray-900 border ${isInCompare ? 'border-purple-500' : 'border-gray-200 dark:border-gray-800'} rounded-xl p-4 card-hover shadow-sm">
+        <div class="flex justify-between items-start">
+          <div class="flex-1 min-w-0">
+            <span class="text-xs text-gray-500">${d.category || 'Expired'}</span>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white truncate">${d.domain}${d.tld}</h3>
+          </div>
+          <div class="flex flex-col items-end gap-1">
+            <span class="text-[10px] font-bold px-2 py-1 rounded-full ${d.isHot ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}">${d.isHot ? '🔥 HOT' : ''}</span>
+            <span class="text-[10px] font-bold px-2 py-1 rounded-full ${statusClass}">${d.statusLabel || '❓ Unknown'}</span>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mt-3 text-xs">
+          <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">DA: ${d.da || 'N/A'}</span>
+          <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">BL: ${d.backlinks || 'N/A'}</span>
+          <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">🚦 ${d.traffic || 'N/A'}</span>
+          <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">📅 ${d.age || 'N/A'}y</span>
+        </div>
+
+        <div class="mt-3">
+          <span class="text-xs text-gray-500">Flip Score:</span>
+          <span class="text-sm font-bold ${scoreColor}">${d.flippabilityScore || 'N/A'}</span>
+          <span class="text-[10px] text-gray-500 ml-2">${d.brandability || '⭐ Medium'}</span>
+        </div>
+
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button onclick="toggleCompare(${d.id})" class="text-xs ${isInCompare ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} hover:bg-purple-700 hover:text-white px-3 py-1 rounded-full">
+            ${isInCompare ? '✓ In Compare' : '+ Compare'}
+          </button>
+          <button onclick="checkWayback('${fullDomain}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-full">
+            🕰️ History
+          </button>
+          <button onclick="fetchRealDA('${fullDomain}', ${d.id}, this)" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-full">
+            📊 Get DA
+          </button>
+          ${actionButton}
+        </div>
+        <div id="daDisplay-${d.id}" class="mt-2 text-xs hidden"></div>
+      </div>
+    `;
+  }).join('');
+
+  resultCount.textContent = `Showing ${domains.length} of ${currentDomains.length} domains`;
+}
     // WAYBACK / SPAM CHECK
     async function checkWayback(domain) {
       document.getElementById('waybackModal').classList.remove('hidden');
@@ -581,23 +618,48 @@
       document.getElementById('statusModal').classList.add('hidden');
     }
 
-    // SEARCH & FILTER
+    //search and filters
     function applyFilters() {
-      const query = searchInput.value.toLowerCase().trim();
-      const sortBy = sortSelect.value;
-      let results = [...currentDomains];
-      if (query) results = results.filter(d => d.domain.includes(query) || d.tld.includes(query));
-      results.sort((a, b) => {
-        if (sortBy === 'score') return (b.flippabilityScore || 0) - (a.flippabilityScore || 0);
-        if (sortBy === 'traffic') return (b.traffic || 0) - (a.traffic || 0);
-        if (sortBy === 'da') return (b.da || 0) - (a.da || 0);
-        if (sortBy === 'name') return (a.domain || '').localeCompare(b.domain || '');
-        return 0;
-      });
-      filteredDomains = results;
-      renderDomains(results);
-    }
+        const query = searchInput.value.toLowerCase().trim();
+        const sortBy = sortSelect.value;
+        const statusFilter = document.getElementById('statusFilter').value;
 
+        let results = [...currentDomains];
+
+        // Keyword filter
+        if (query) {
+            results = results.filter(d => d.domain.includes(query) || d.tld.includes(query));
+        }
+
+        // ✅ Status filter
+        if (statusFilter !== 'all') {
+            if (statusFilter === 'available') {
+            results = results.filter(d => d.status === 'available');
+            } else if (statusFilter === 'auction') {
+            results = results.filter(d => d.status === 'auction');
+            } else if (statusFilter === 'pendingDelete') {
+            results = results.filter(d => d.status === 'pendingDelete');
+            } else if (statusFilter === 'redemption') {
+            results = results.filter(d => d.status === 'redemption');
+            } else if (statusFilter === 'registered') {
+            results = results.filter(d =>
+                d.status === 'registered' || d.status === 'expiredGrace' || d.status === 'suspended'
+            );
+            }
+        }
+
+        // Sort
+        results.sort((a, b) => {
+            if (sortBy === 'score') return (b.flippabilityScore || 0) - (a.flippabilityScore || 0);
+            if (sortBy === 'traffic') return (b.traffic || 0) - (a.traffic || 0);
+            if (sortBy === 'da') return (b.da || 0) - (a.da || 0);
+            if (sortBy === 'name') return (a.domain || '').localeCompare(b.domain || '');
+            return 0;
+        });
+
+        filteredDomains = results;
+        renderDomains(results);
+    }
     // COMPARE
     window.toggleCompare = function(id) {
       const domain = currentDomains.find(d => d.id === id);
@@ -680,6 +742,7 @@
     fetchBtn.addEventListener('click', fetchLiveDomains);
     searchInput.addEventListener('input', applyFilters);
     sortSelect.addEventListener('change', applyFilters);
+    document.getElementById('statusFilter').addEventListener('change', applyFilters);
 
     // Close modals on backdrop click
     ['compareModal','statusModal','liveDataModal','waybackModal','upgradeModal'].forEach(id => {
