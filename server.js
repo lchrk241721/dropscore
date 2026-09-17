@@ -516,7 +516,7 @@ app.listen(PORT, () => {
 });
 
 // ============================================
-// 11. CHECK DOMAIN STATUS VIA RDAP (Free, No API Key)
+// 11. CHECK DOMAIN STATUS VIA RDAP (Free, No API Key, With Fallback)
 // ============================================
 app.get('/api/domain-status', async (req, res) => {
   const { domain } = req.query;
@@ -525,86 +525,103 @@ app.get('/api/domain-status', async (req, res) => {
     return res.status(400).json({ error: 'Domain name required' });
   }
 
-  try {
-    const response = await fetch(`https://rdap.org/domain/${domain}`, {
-      headers: { 'Accept': 'application/rdap+json' }
-    });
+  // Try multiple RDAP providers
+  const rdapProviders = [
+    `https://rdap.org/domain/${domain}`,
+    `https://rdap.verisign.com/com/v1/domain/${domain}`,
+    `https://www.rdap.net/domain/${domain}`
+  ];
 
-    // If RDAP returns 404, the domain is likely available
-    if (response.status === 404) {
-      return res.json({
-        domain: domain,
-        status: 'available',
-        statusLabel: '🛒 Available for Registration',
-        canRegister: true,
-        actionUrl: `https://www.namecheap.com/domains/registration/results/?domain=${domain}`,
-        actionLabel: 'Check Price 🛒'
+  let lastError = null;
+
+  for (const url of rdapProviders) {
+    try {
+      const response = await fetch(url, {
+        headers: { 'Accept': 'application/rdap+json, application/json' },
+        signal: AbortSignal.timeout(8000)
       });
-    }
 
-    if (!response.ok) {
-      throw new Error(`RDAP returned ${response.status}`);
-    }
+      // 404 means domain is available (not registered)
+      if (response.status === 404) {
+        return res.json({
+          domain: domain,
+          status: 'available',
+          statusLabel: '🛒 Available for Registration',
+          canRegister: true,
+          actionUrl: `https://www.namecheap.com/domains/registration/results/?domain=${domain}`,
+          actionLabel: 'Register Now 🛒',
+          registrar: 'N/A',
+          creationDate: 'N/A',
+          expiryDate: 'N/A',
+          statusCodes: ['available']
+        });
+      }
 
-    const data = await response.json();
-    const statusCodes = (data.status || []).map(s => s.toLowerCase());
+      if (!response.ok) {
+        lastError = `RDAP returned ${response.status}`;
+        continue;
+      }
 
-    // Determine the domain's lifecycle stage
-    let status = 'active';
-    let statusLabel = '🔒 Already Registered';
-    let canRegister = false;
-    let actionLabel = 'Check Auctions 🔍';
-    let actionUrl = `https://www.namecheap.com/domains/registration/results/?domain=${domain}`;
+      const data = await response.json();
+      const statusCodes = (data.status || []).map(s => s.toLowerCase());
 
-    if (statusCodes.includes('pending delete') || statusCodes.includes('pendingdelete')) {
-      status = 'pendingDelete';
-      statusLabel = '⏳ Dropping Soon – Set Reminder';
-      actionLabel = 'Watch for Drop ⏳';
-    } else if (statusCodes.includes('redemption period') || statusCodes.includes('redemptionperiod')) {
-      status = 'redemption';
-      statusLabel = '🔄 In Redemption – Watch for Drop';
-      actionLabel = 'Watch Redemption 🔄';
-    } else if (statusCodes.includes('clienthold') || statusCodes.includes('serverhold')) {
-      status = 'suspended';
-      statusLabel = '⚠️ Suspended – Check WHOIS';
-      actionLabel = 'Check WHOIS ⚠️';
-    } else if (statusCodes.includes('active')) {
-      // Domain is active — check if it's expired or just registered
-      const expiryEvent = data.events?.find(e => e.eventAction === 'expiration');
-      if (expiryEvent) {
-        const expiryDate = new Date(expiryEvent.eventDate);
-        const now = new Date();
-        if (expiryDate < now) {
+      let status = 'active';
+      let statusLabel = '🔒 Already Registered';
+      let canRegister = false;
+      let actionLabel = 'Check Auctions 🔍';
+      let actionUrl = `https://www.namecheap.com/domains/registration/results/?domain=${domain}`;
+
+      if (statusCodes.some(s => s.includes('pending delete') || s.includes('pendingdelete'))) {
+        status = 'pendingDelete';
+        statusLabel = '⏳ Dropping Soon';
+        actionLabel = 'Watch for Drop ⏳';
+      } else if (statusCodes.some(s => s.includes('redemption'))) {
+        status = 'redemption';
+        statusLabel = '🔄 In Redemption Period';
+        actionLabel = 'Watch Redemption 🔄';
+      } else if (statusCodes.some(s => s.includes('hold'))) {
+        status = 'suspended';
+        statusLabel = '⚠️ Suspended';
+        actionLabel = 'Check WHOIS ⚠️';
+      } else if (statusCodes.includes('active')) {
+        const expiryEvent = data.events?.find(e => e.eventAction === 'expiration');
+        if (expiryEvent && new Date(expiryEvent.eventDate) < new Date()) {
           status = 'expiredActive';
           statusLabel = '⏰ Expired – In Grace Period';
           actionLabel = 'Check Auctions 🔍';
         }
       }
+
+      return res.json({
+        domain: domain,
+        status: status,
+        statusLabel: statusLabel,
+        canRegister: canRegister,
+        actionUrl: actionUrl,
+        actionLabel: actionLabel,
+        creationDate: data.events?.find(e => e.eventAction === 'registration')?.eventDate || 'N/A',
+        expiryDate: data.events?.find(e => e.eventAction === 'expiration')?.eventDate || 'N/A',
+        registrar: data.entities?.find(e => e.roles?.includes('registrar'))?.vcardArray?.[1]?.[1]?.[3] || 'N/A',
+        statusCodes: statusCodes
+      });
+
+    } catch (error) {
+      lastError = error.message;
+      continue;
     }
-
-    res.json({
-      domain: domain,
-      status: status,
-      statusLabel: statusLabel,
-      canRegister: canRegister,
-      actionUrl: actionUrl,
-      actionLabel: actionLabel,
-      creationDate: data.events?.find(e => e.eventAction === 'registration')?.eventDate || 'N/A',
-      expiryDate: data.events?.find(e => e.eventAction === 'expiration')?.eventDate || 'N/A',
-      registrar: data.entities?.find(e => e.roles?.includes('registrar'))?.vcardArray?.[1]?.[1]?.[3] || 'N/A',
-      statusCodes: statusCodes
-    });
-
-  } catch (error) {
-    console.error('RDAP status error:', error.message);
-    res.status(500).json({
-      domain: domain,
-      status: 'unknown',
-      statusLabel: '❓ Status Unknown',
-      canRegister: false,
-      actionUrl: `https://www.namecheap.com/domains/registration/results/?domain=${domain}`,
-      actionLabel: 'Check Manually 🔍',
-      error: error.message
-    });
   }
+
+  // All providers failed
+  return res.json({
+    domain: domain,
+    status: 'unknown',
+    statusLabel: '❓ Status Unavailable',
+    canRegister: false,
+    actionUrl: `https://www.namecheap.com/domains/registration/results/?domain=${domain}`,
+    actionLabel: 'Check on Namecheap 🔍',
+    registrar: 'N/A',
+    creationDate: 'N/A',
+    expiryDate: 'N/A',
+    statusCodes: ['RDAP unavailable: ' + (lastError || 'unknown error')]
+  });
 });
