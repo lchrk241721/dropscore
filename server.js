@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
+const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,8 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ============================================
 // CONFIGURATION
 // ============================================
-const DOMAINSDB_API_KEY = process.env.DOMAINSDB_API_KEY || '';
-const DOMAINSDB_BASE_URL = 'https://api.domainsdb.info/v1';
+const CATCHDOMS_FREE_URL = 'https://catchdoms.com/mcp/catchdoms/free';
 
 // ============================================
 // 1. HEALTH CHECK
@@ -23,117 +24,156 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     message: 'DropScore API is running',
-    dataSource: 'DomainsDB.info + CatchDoms fallback'
+    dataSource: 'CatchDoms MCP (Free Tier)'
   });
 });
 
 // ============================================
-// 2. FETCH EXPIRED DOMAINS (CORE FEATURE)
+// 2. FETCH EXPIRED DOMAINS VIA CATCHDOMS MCP
 // ============================================
 app.get('/api/fetch-expiring-domains', async (req, res) => {
+  let client = null;
   try {
-    console.log('📡 Fetching expired domains...');
+    console.log('📡 Connecting to CatchDoms MCP (Free Tier)...');
 
+    // 1. Create and connect the MCP client
+    const transport = new SSEClientTransport(new URL(CATCHDOMS_FREE_URL));
+    client = new Client(
+      { name: 'dropscore-mvp', version: '1.0.0' },
+      { capabilities: {} }
+    );
+
+    await client.connect(transport);
+    console.log('✅ Connected to CatchDoms MCP');
+
+    // 2. Call the search_domains tool with basic parameters
+    // The free tier returns up to 50 results, but only the first 10 have visible names.
+    const result = await client.callTool({
+      name: 'search_domains',
+      arguments: {
+        limit: 50 // Request the maximum for free tier
+      }
+    });
+
+    // 3. Parse the result (CatchDoms returns JSON as a text block)
     let domainsList = [];
-
-    // Attempt 1: DomainsDB.info (if API key is set)
-    if (DOMAINSDB_API_KEY) {
-      try {
-        const apiUrl = `${DOMAINSDB_BASE_URL}/domains/updates/deleted?api_key=${DOMAINSDB_API_KEY}&limit=50`;
-        const response = await fetch(apiUrl, { signal: AbortSignal.timeout(15000) });
-
-        if (response.ok) {
-          const data = await response.json();
-          domainsList = data.domains || [];
-          console.log(`✅ DomainsDB returned ${domainsList.length} domains`);
+    if (result.content && Array.isArray(result.content)) {
+      const textBlock = result.content.find(c => c.type === 'text');
+      if (textBlock && textBlock.text) {
+        try {
+          const parsed = JSON.parse(textBlock.text);
+          // CatchDoms may return an array directly or an object with a 'domains' key
+          domainsList = Array.isArray(parsed) ? parsed : (parsed.domains || []);
+        } catch (parseErr) {
+          console.error('Failed to parse CatchDoms response:', parseErr.message);
+          throw new Error('Invalid response format from CatchDoms');
         }
-      } catch (err) {
-        console.log('⚠️ DomainsDB failed:', err.message);
       }
     }
 
-    // Fallback: Generate realistic domain data
-    if (domainsList.length === 0) {
-      console.log('⚠️ Using fallback domain generator');
+    if (!Array.isArray(domainsList) || domainsList.length === 0) {
       return res.json({
         success: true,
-        count: 50,
-        domains: generateFallbackDomains(),
+        count: 0,
+        domains: [],
         fetchedAt: new Date().toISOString(),
-        message: 'Showing estimated domains (live API unavailable)'
+        message: 'No expired domains found at this time. Please try again later.'
       });
     }
 
-    // Transform DomainsDB data to DropScore format
-    const domains = domainsList.slice(0, 50).map((d, index) => {
-      const domainName = d.domain || `example${index}`;
+    // 4. Transform CatchDoms data to DropScore format
+    const domains = domainsList.map((d, index) => {
+      // CatchDoms field names (based on their API docs)
+      const domainName = d.domain || d.name || `unknown${index}`;
       const parts = domainName.split('.');
       const name = parts[0] || domainName;
       const tld = parts.length > 1 ? `.${parts.slice(1).join('.')}` : '.com';
 
-      let age = 0;
-      if (d.create_date) {
-        const created = new Date(d.create_date);
-        age = Math.max(1, Math.floor((Date.now() - created) / (1000 * 60 * 60 * 24 * 365)));
+      const da = d.domain_authority || d.da || 0;
+      const backlinks = d.backlinks || d.referring_domains || 0;
+      const age = d.age_years || d.age || 0;
+      const traffic = d.traffic || 0; // May not be available on free tier
+
+      // Calculate Flippability Score using available metrics
+      const flippabilityScore = Math.min(100, Math.round(
+        (da * 0.6) + (traffic / 100) + (age * 2)
+      ));
+
+      // Brandability check
+      let brandability = '⭐ Medium';
+      if (name.length <= 8 && !/\d/.test(name) && !name.includes('-')) {
+        brandability = '🔥 High';
+      } else if (name.length > 12 || name.includes('-') || /\d/.test(name)) {
+        brandability = '🛑 Low';
       }
-
-      const da = Math.floor(Math.random() * 50) + 20;
-      const traffic = Math.floor(Math.random() * 800) + 10;
-      const flippabilityScore = Math.min(100, Math.round(da * 0.6 + traffic / 100 + age * 2));
-
-      let brandability = 'Medium';
-      if (name.length <= 8 && !/\d/.test(name) && !name.includes('-')) brandability = '🔥 High';
-      else if (name.length <= 12 && !name.includes('-')) brandability = '⭐ Medium';
-      else brandability = '🛑 Low';
 
       return {
         id: index + 1,
         domain: name.toLowerCase(),
         tld: tld,
         da: da,
-        pa: Math.floor(Math.random() * 30) + 10,
-        backlinks: Math.floor(Math.random() * 1500) + 50,
+        pa: d.page_authority || 0,
+        backlinks: backlinks,
         traffic: traffic,
         age: age,
-        expiry: d.update_date || 'N/A',
-        category: 'Expired',
+        expiry: d.expiry_date || d.drop_date || 'N/A',
+        category: d.source || 'Expired',
         flippabilityScore: flippabilityScore,
         brandability: brandability,
-        isHot: flippabilityScore > 65
+        isHot: flippabilityScore > 65,
+        // Preserve original source for transparency
+        source: d.source || 'CatchDoms'
       };
     });
 
+    // Free tier: only the first 10 domains will have real names.
+    // We still send all 50, but the UI will display what it receives.
+    const finalDomains = domains.slice(0, 50);
+
+    console.log(`✅ Fetched ${finalDomains.length} domains from CatchDoms`);
+
     res.json({
       success: true,
-      count: domains.length,
-      domains: domains,
+      count: finalDomains.length,
+      domains: finalDomains,
       fetchedAt: new Date().toISOString(),
-      message: `Successfully fetched ${domains.length} expired domains`
+      message: `Successfully fetched ${finalDomains.length} expired domains (free tier limit)`
     });
 
   } catch (error) {
-    console.error('❌ Fetch error:', error.message);
+    console.error('❌ CatchDoms MCP error:', error.message);
+
+    // Graceful fallback: return an informative message and an empty list
     res.json({
-      success: true,
-      count: 50,
-      domains: generateFallbackDomains(),
+      success: false,
+      count: 0,
+      domains: [],
       fetchedAt: new Date().toISOString(),
-      message: 'Showing estimated domains (API unavailable)'
+      message: 'Could not reach CatchDoms right now. Please try again in a moment.',
+      error: error.message
     });
+  } finally {
+    // Always close the MCP client to free resources
+    if (client) {
+      try {
+        await client.close();
+        console.log('🔌 CatchDoms MCP connection closed');
+      } catch (closeErr) {
+        console.error('Error closing MCP client:', closeErr.message);
+      }
+    }
   }
 });
 
 // ============================================
-// 3. DOMAIN STATUS CHECK (RDAP with Fallback) ✅ NEW
+// 3. DOMAIN STATUS CHECK (RDAP with Fallback)
 // ============================================
 app.get('/api/domain-status', async (req, res) => {
   const { domain } = req.query;
-
   if (!domain) {
     return res.status(400).json({ error: 'Domain name required' });
   }
 
-  // Try multiple RDAP providers for robustness
   const rdapProviders = [
     `https://rdap.org/domain/${domain}`,
     `https://rdap.verisign.com/com/v1/domain/${domain}`,
@@ -149,7 +189,6 @@ app.get('/api/domain-status', async (req, res) => {
         signal: AbortSignal.timeout(8000)
       });
 
-      // 404 = domain is available
       if (response.status === 404) {
         return res.json({
           domain: domain,
@@ -219,7 +258,6 @@ app.get('/api/domain-status', async (req, res) => {
     }
   }
 
-  // All RDAP providers failed — return graceful response (not 500)
   return res.json({
     domain: domain,
     status: 'unknown',
@@ -334,43 +372,7 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 // ============================================
-// 8. FALLBACK DOMAIN GENERATOR
-// ============================================
-function generateFallbackDomains() {
-  const prefixes = ['Nova', 'Apex', 'Zen', 'Nexus', 'Vibe', 'Core', 'Prime', 'Elite', 'Peak', 'Axon'];
-  const suffixes = ['Labs', 'Hub', 'Works', 'Studio', 'Ventures', 'Digital', 'Systems'];
-  const tlds = ['.com', '.io', '.ai', '.co', '.app'];
-
-  return Array.from({ length: 50 }, (_, i) => {
-    const p = prefixes[Math.floor(Math.random() * prefixes.length)];
-    const s = suffixes[Math.floor(Math.random() * suffixes.length)];
-    const name = `${p}${s}${i}`.toLowerCase();
-    const tld = tlds[Math.floor(Math.random() * tlds.length)];
-    const da = Math.floor(Math.random() * 50) + 20;
-    const traffic = Math.floor(Math.random() * 1000) + 10;
-    const age = Math.floor(Math.random() * 15) + 1;
-    const flippabilityScore = Math.min(100, Math.round(da * 0.6 + traffic / 100 + age * 2));
-
-    return {
-      id: i + 1,
-      domain: name,
-      tld: tld,
-      da: da,
-      pa: Math.floor(Math.random() * 30) + 10,
-      backlinks: Math.floor(Math.random() * 2000) + 50,
-      traffic: traffic,
-      age: age,
-      expiry: 'N/A',
-      category: 'Fallback',
-      flippabilityScore: flippabilityScore,
-      brandability: Math.random() > 0.6 ? '🔥 High' : '⭐ Medium',
-      isHot: flippabilityScore > 65
-    };
-  });
-}
-
-// ============================================
-// 9. CATCH-ALL: 404 for /api/*, index.html for everything else
+// 8. CATCH-ALL: 404 for /api/*, index.html for everything else
 // ============================================
 app.get('/api/*', (req, res) => {
   res.status(404).json({ error: 'API endpoint not found', path: req.path });
@@ -381,16 +383,15 @@ app.get('*', (req, res) => {
 });
 
 // ============================================
-// 10. START SERVER
+// 9. START SERVER
 // ============================================
 app.listen(PORT, () => {
   console.log(`✅ DropScore running on http://localhost:${PORT}`);
+  console.log(`✅ Data Source: CatchDoms MCP (Free Tier)`);
   console.log(`✅ Endpoints available:`);
   console.log(`   - /api/health`);
-  console.log(`   - /api/fetch-expiring-domains`);
+  console.log(`   - /api/fetch-expiring-domains (CatchDoms MCP)`);
   console.log(`   - /api/domain-status?domain=example.com`);
   console.log(`   - /api/domain-whois?domain=example.com`);
   console.log(`   - /api/waitlist`);
-  console.log(`   - /robots.txt`);
-  console.log(`   - /sitemap.xml`);
 });
