@@ -28,45 +28,73 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============================================
-// 2. HELPER: Domain status via RDAP
+// 2. HELPER: Domain status via RDAP (FIXED)
 // ============================================
 async function getDomainStatus(domain) {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+  const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-    const response = await fetch(`https://rdap.org/domain/${domain}`, {
-      headers: { 'Accept': 'application/rdap+json, application/json' },
-      signal: controller.signal
-    });
+  const providers = [
+    `https://rdap.org/domain/${domain}`,
+    `https://who-dat.as93.net/${domain}`
+  ];
 
-    clearTimeout(timeout);
+  for (const url of providers) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
 
-    if (response.status === 404) {
-      return { status: 'available', statusLabel: '🛒 Available', statusColor: 'green' };
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/rdap+json, application/json',
+          'User-Agent': USER_AGENT
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      if (response.status === 404) {
+        return { status: 'available', statusLabel: '🛒 Available', statusColor: 'green' };
+      }
+
+      if (response.status === 403 || response.status === 429) {
+        continue; // try next provider
+      }
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = await response.json();
+
+      // who-dat.as93.net returns a different shape — normalize it
+      if (url.includes('who-dat')) {
+        if (data.isRegistered === false) {
+          return { status: 'available', statusLabel: '🛒 Available', statusColor: 'green' };
+        }
+        return { status: 'auction', statusLabel: '🏷️ In Auction', statusColor: 'purple' };
+      }
+
+      const statusCodes = (data.status || []).map(s => String(s).toLowerCase());
+
+      if (statusCodes.some(s => s.includes('pending'))) {
+        return { status: 'pendingDelete', statusLabel: '⏳ Dropping Soon', statusColor: 'yellow' };
+      }
+      if (statusCodes.some(s => s.includes('redemption'))) {
+        return { status: 'redemption', statusLabel: '🔄 In Redemption', statusColor: 'orange' };
+      }
+      if (statusCodes.some(s => s.includes('hold'))) {
+        return { status: 'suspended', statusLabel: '⚠️ Suspended', statusColor: 'red' };
+      }
+
+      return { status: 'auction', statusLabel: '🏷️ In Auction', statusColor: 'purple' };
+
+    } catch (e) {
+      continue;
     }
-
-    if (!response.ok) {
-      return { status: 'unknown', statusLabel: '❓ Unknown', statusColor: 'gray' };
-    }
-
-    const data = await response.json();
-    const statusCodes = (data.status || []).map(s => String(s).toLowerCase());
-
-    if (statusCodes.some(s => s.includes('pending'))) {
-      return { status: 'pendingDelete', statusLabel: '⏳ Dropping Soon', statusColor: 'yellow' };
-    }
-    if (statusCodes.some(s => s.includes('redemption'))) {
-      return { status: 'redemption', statusLabel: '🔄 In Redemption', statusColor: 'orange' };
-    }
-    if (statusCodes.some(s => s.includes('hold'))) {
-      return { status: 'suspended', statusLabel: '⚠️ Suspended', statusColor: 'red' };
-    }
-
-    return { status: 'auction', statusLabel: '🏷️ In Auction', statusColor: 'purple' };
-  } catch (e) {
-    return { status: 'unknown', statusLabel: '❓ Unknown', statusColor: 'gray' };
   }
+
+  return { status: 'unknown', statusLabel: '❓ Unknown', statusColor: 'gray' };
 }
 
 // ============================================
@@ -189,52 +217,86 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
 });
 
 // ============================================
-// 4. WHOIS LOOKUP (RDAP) — RESTORED
+// 4. WHOIS LOOKUP (RDAP with proper User-Agent + fallback)
 // ============================================
 app.get('/api/domain-whois', async (req, res) => {
   const { domain } = req.query;
   if (!domain) return res.status(400).json({ error: 'Domain required' });
 
-  try {
-    const response = await fetch(`https://rdap.org/domain/${domain}`, {
-      headers: { 'Accept': 'application/rdap+json, application/json' },
-      signal: AbortSignal.timeout(10000)
-    });
+  // Try multiple RDAP providers for robustness
+  const rdapProviders = [
+    `https://rdap.org/domain/${domain}`,
+    `https://who-dat.as93.net/${domain}`,       // Fallback 1
+    `https://rdap.verisign.com/com/v1/domain/${domain}` // Fallback 2 (for .com/.net)
+  ];
 
-    if (response.status === 404) {
-      return res.status(404).json({ error: 'Domain not found' });
+  // A browser-like User-Agent is REQUIRED — Cloudflare blocks default Node.js agents
+  const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+  for (const url of rdapProviders) {
+    try {
+      console.log(`📡 WHOIS lookup: ${url}`);
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/rdap+json, application/json',
+          'User-Agent': USER_AGENT
+        },
+        signal: AbortSignal.timeout(10000)
+      });
+
+      // 404 = domain not registered → available
+      if (response.status === 404) {
+        return res.status(404).json({ error: 'Domain not found' });
+      }
+
+      // 403/429 → try next provider
+      if (response.status === 403 || response.status === 429) {
+        console.log(`⚠️ Provider blocked us (${response.status}), trying next...`);
+        continue;
+      }
+
+      if (!response.ok) {
+        console.log(`⚠️ Provider returned ${response.status}, trying next...`);
+        continue;
+      }
+
+      const data = await response.json();
+
+      // Extract registrar from vcardArray
+      let registrar = 'N/A';
+      const regEntity = data.entities?.find(e => e.roles?.includes('registrar'));
+      if (regEntity?.vcardArray?.[1]) {
+        const fnEntry = regEntity.vcardArray[1].find(item => item[0] === 'fn');
+        if (fnEntry && fnEntry[3]) registrar = fnEntry[3];
+      }
+
+      console.log(`✅ WHOIS success for ${domain} via ${url.split('/')[2]}`);
+
+      return res.json({
+        domain: domain,
+        creationDate: data.events?.find(e => e.eventAction === 'registration')?.eventDate || 'N/A',
+        expiryDate: data.events?.find(e => e.eventAction === 'expiration')?.eventDate || 'N/A',
+        lastChanged: data.events?.find(e => e.eventAction === 'last changed')?.eventDate || 'N/A',
+        registrar: registrar,
+        nameservers: data.nameservers?.map(ns => ns.ldhName).join(', ') || 'N/A',
+        status: Array.isArray(data.status) ? data.status.join(', ') : (data.status || 'N/A'),
+        handle: data.handle || 'N/A',
+        ldhName: data.ldhName || domain
+      });
+
+    } catch (error) {
+      console.log(`⚠️ Provider failed (${error.message}), trying next...`);
+      continue;
     }
-
-    if (!response.ok) {
-      throw new Error(`RDAP returned ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Extract registrar name from vcardArray
-    let registrar = 'N/A';
-    const registrarEntity = data.entities?.find(e => e.roles?.includes('registrar'));
-    if (registrarEntity?.vcardArray?.[1]) {
-      const fnEntry = registrarEntity.vcardArray[1].find(item => item[0] === 'fn');
-      if (fnEntry && fnEntry[3]) registrar = fnEntry[3];
-    }
-
-    res.json({
-      domain: domain,
-      creationDate: data.events?.find(e => e.eventAction === 'registration')?.eventDate || 'N/A',
-      expiryDate: data.events?.find(e => e.eventAction === 'expiration')?.eventDate || 'N/A',
-      lastChanged: data.events?.find(e => e.eventAction === 'last changed')?.eventDate || 'N/A',
-      registrar: registrar,
-      nameservers: data.nameservers?.map(ns => ns.ldhName).join(', ') || 'N/A',
-      status: (data.status || []).join(', ') || 'N/A',
-      handle: data.handle || 'N/A',
-      ldhName: data.ldhName || domain
-    });
-
-  } catch (error) {
-    console.error('WHOIS error:', error.message);
-    res.status(500).json({ error: 'Failed to fetch WHOIS data', details: error.message });
   }
+
+  // All providers failed
+  console.error('❌ All RDAP providers failed for', domain);
+  res.status(500).json({
+    error: 'Failed to fetch WHOIS data',
+    details: 'All RDAP providers returned an error. Please try again later.'
+  });
 });
 
 // ============================================
