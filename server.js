@@ -22,107 +22,63 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    message: 'DropScore API is running',
-    features: ['CatchDoms', 'RDAP', 'Wayback', 'Spam Check']
+    message: 'DropScore API is running'
   });
 });
 
 // ============================================
-// HELPER: Get detailed domain status
+// 2. HELPER: Check domain status via RDAP
 // ============================================
 async function getDomainStatus(domain) {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch(`https://rdap.org/domain/${domain}`, {
       headers: { 'Accept': 'application/rdap+json, application/json' },
-      signal: AbortSignal.timeout(6000)
+      signal: controller.signal
     });
 
-    // 404 = not registered → fully available
+    clearTimeout(timeout);
+
+    // 404 = domain is NOT registered → available
     if (response.status === 404) {
-      return {
-        status: 'available',
-        statusLabel: '🛒 Available',
-        statusColor: 'green',
-        canRegister: true
-      };
+      return { status: 'available', statusLabel: '🛒 Available', statusColor: 'green' };
     }
 
     if (!response.ok) {
-      return {
-        status: 'unknown',
-        statusLabel: '❓ Unknown',
-        statusColor: 'gray',
-        canRegister: false
-      };
+      return { status: 'unknown', statusLabel: '❓ Unknown', statusColor: 'gray' };
     }
 
     const data = await response.json();
-    const statusCodes = (data.status || []).map(s => s.toLowerCase());
-    const expiryDate = data.events?.find(e => e.eventAction === 'expiration')?.eventDate;
-    const isExpired = expiryDate && new Date(expiryDate) < new Date();
+    const statusCodes = (data.status || []).map(s => String(s).toLowerCase());
 
-    // Priority order matters: check most-actionable statuses first
-    if (statusCodes.some(s => s.includes('pending delete') || s.includes('pendingdelete'))) {
-      return {
-        status: 'pendingDelete',
-        statusLabel: '⏳ Dropping Soon',
-        statusColor: 'yellow',
-        canRegister: false
-      };
+    if (statusCodes.some(s => s.includes('pending'))) {
+      return { status: 'pendingDelete', statusLabel: '⏳ Dropping Soon', statusColor: 'yellow' };
     }
-
     if (statusCodes.some(s => s.includes('redemption'))) {
-      return {
-        status: 'redemption',
-        statusLabel: '🔄 In Redemption',
-        statusColor: 'orange',
-        canRegister: false
-      };
+      return { status: 'redemption', statusLabel: '🔄 In Redemption', statusColor: 'orange' };
     }
-
     if (statusCodes.some(s => s.includes('hold'))) {
-      return {
-        status: 'suspended',
-        statusLabel: '⚠️ Suspended',
-        statusColor: 'red',
-        canRegister: false
-      };
+      return { status: 'suspended', statusLabel: '⚠️ Suspended', statusColor: 'red' };
     }
 
-    if (isExpired) {
-      return {
-        status: 'expiredGrace',
-        statusLabel: '⏰ Expired (Grace Period)',
-        statusColor: 'amber',
-        canRegister: false
-      };
-    }
-
-    // Domain is actively registered — check if it's up for auction
-    // CatchDoms aggregates auction listings, so if it's in our feed AND registered, it's likely in auction
-    return {
-      status: 'auction',
-      statusLabel: '🏷️ In Auction',
-      statusColor: 'purple',
-      canRegister: false
-    };
+    // If CatchDoms returned it, and it's registered, it's likely in auction
+    return { status: 'auction', statusLabel: '🏷️ In Auction', statusColor: 'purple' };
 
   } catch (e) {
-    return {
-      status: 'unknown',
-      statusLabel: '❓ Unknown',
-      statusColor: 'gray',
-      canRegister: false
-    };
+    return { status: 'unknown', statusLabel: '❓ Unknown', statusColor: 'gray' };
   }
 }
 
 // ============================================
-// FETCH EXPIRED DOMAINS (WITH STATUS LABELING)
+// 3. FETCH EXPIRED DOMAINS (WITH STATUS)
 // ============================================
 app.get('/api/fetch-expiring-domains', async (req, res) => {
   let client = null;
   try {
+    console.log('📡 Connecting to CatchDoms...');
+
     const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js');
     const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 
@@ -130,6 +86,7 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
     client = new Client({ name: 'dropscore-mvp', version: '1.0.0' }, { capabilities: {} });
 
     await client.connect(transport);
+    console.log('✅ Connected');
 
     const result = await client.callTool({
       name: 'search_domains',
@@ -140,27 +97,38 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
     if (result.content && Array.isArray(result.content)) {
       const textBlock = result.content.find(c => c.type === 'text');
       if (textBlock && textBlock.text) {
-        const parsed = JSON.parse(textBlock.text);
-        domainsList = Array.isArray(parsed) ? parsed : (parsed.domains || []);
+        try {
+          const parsed = JSON.parse(textBlock.text);
+          domainsList = Array.isArray(parsed) ? parsed : (parsed.domains || []);
+        } catch (parseErr) {
+          console.error('Parse error:', parseErr.message);
+        }
       }
     }
 
+    console.log(`📦 Received ${domainsList.length} domains from CatchDoms`);
+
     if (domainsList.length === 0) {
-      return res.json({ success: true, count: 0, domains: [], message: 'No domains found.' });
+      return res.json({
+        success: false,
+        count: 0,
+        domains: [],
+        message: 'CatchDoms returned no domains. Please try again in a moment.'
+      });
     }
 
     // Transform to our format
     const transformed = domainsList.map((d, index) => {
-      const domainName = d.domain || d.name || `unknown${index}`;
+      const domainName = d.domain || d.name || `unknown${index}.com`;
       const parts = domainName.split('.');
       const name = parts[0] || domainName;
       const tld = parts.length > 1 ? `.${parts.slice(1).join('.')}` : '.com';
 
-      const da = d.domain_authority || d.da || 0;
-      const backlinks = d.backlinks || d.referring_domains || 0;
-      const age = d.age_years || d.age || 0;
+      const da = parseInt(d.domain_authority || d.da || 0) || 0;
+      const backlinks = parseInt(d.backlinks || d.referring_domains || 0) || 0;
+      const age = parseInt(d.age_years || d.age || 0) || 0;
 
-      const flippabilityScore = Math.min(100, Math.round((da * 0.6) + (age * 2)));
+      const flippabilityScore = Math.min(100, Math.round((da * 0.6) + (age * 2) + 10));
 
       let brandability = '⭐ Medium';
       if (name.length <= 8 && !/\d/.test(name) && !name.includes('-')) brandability = '🔥 High';
@@ -172,9 +140,9 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
         tld: tld,
         fullDomain: domainName.toLowerCase(),
         da: da,
-        pa: d.page_authority || 0,
+        pa: parseInt(d.page_authority || d.pa || 0) || 0,
         backlinks: backlinks,
-        traffic: d.traffic || 0,
+        traffic: parseInt(d.traffic || 0) || 0,
         age: age,
         expiry: d.expiry_date || d.drop_date || 'N/A',
         category: d.source || 'Expired',
@@ -184,11 +152,11 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
       };
     });
 
-    // ✅ Enrich each domain with its real status (in parallel batches of 5)
+    // Enrich with status (parallel batches of 5)
     console.log(`🔍 Checking status for ${transformed.length} domains...`);
 
     const BATCH_SIZE = 5;
-    const enrichedDomains = [];
+    const enriched = [];
 
     for (let i = 0; i < transformed.length; i += BATCH_SIZE) {
       const batch = transformed.slice(i, i + BATCH_SIZE);
@@ -198,267 +166,225 @@ app.get('/api/fetch-expiring-domains', async (req, res) => {
           return { ...d, ...status };
         })
       );
-      enrichedDomains.push(...results);
-
+      enriched.push(...results);
       if (i + BATCH_SIZE < transformed.length) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(r => setTimeout(r, 200));
       }
     }
 
-    // Log status summary
-    const statusCounts = enrichedDomains.reduce((acc, d) => {
+    // Log summary
+    const summary = enriched.reduce((acc, d) => {
       acc[d.status] = (acc[d.status] || 0) + 1;
       return acc;
     }, {});
-    console.log('📊 Status summary:', statusCounts);
+    console.log('📊 Status summary:', summary);
 
-    // ✅ Return ALL domains — no filtering
     res.json({
       success: true,
-      count: enrichedDomains.length,
-      domains: enrichedDomains,
+      count: enriched.length,
+      domains: enriched,
       fetchedAt: new Date().toISOString(),
-      message: `Fetched ${enrichedDomains.length} domains with live status`
+      message: `Fetched ${enriched.length} domains`
     });
 
   } catch (error) {
-    console.error('CatchDoms error:', error.message);
-    res.json({ success: false, count: 0, domains: [], message: 'Could not reach CatchDoms.' });
+    console.error('❌ CatchDoms error:', error.message);
+    res.json({
+      success: false,
+      count: 0,
+      domains: [],
+      message: `Error: ${error.message}`
+    });
   } finally {
-    if (client) { try { await client.close(); } catch (e) {} }
+    if (client) {
+      try { await client.close(); } catch (e) {}
+    }
   }
 });
 
 // ============================================
-// 3. WAYBACK MACHINE CHECK (Free CDX API)
+// 4. WAYBACK MACHINE CHECK
 // ============================================
 app.get('/api/wayback-check', async (req, res) => {
   const { domain } = req.query;
   if (!domain) return res.status(400).json({ error: 'Domain required' });
 
   try {
-    // CDX API: returns every capture the Wayback Machine holds for a domain
     const cdxUrl = `https://web.archive.org/cdx/search/cdx?url=${domain}&output=json&limit=30&fl=timestamp,original,statuscode`;
-
-    const cdxResponse = await fetch(cdxUrl, {
-      signal: AbortSignal.timeout(15000)
-    });
+    const response = await fetch(cdxUrl, { signal: AbortSignal.timeout(15000) });
 
     let snapshots = [];
     let firstCapture = null;
     let lastCapture = null;
 
-    if (cdxResponse.ok) {
-      const cdxData = await cdxResponse.json();
-      // First row is column headers; remaining rows are data
-      if (cdxData.length > 1) {
-        snapshots = cdxData.slice(1).map(row => ({
-          timestamp: row[0],
-          url: row[1],
-          status: row[2]
+    if (response.ok) {
+      const data = await response.json();
+      if (data.length > 1) {
+        snapshots = data.slice(1).map(row => ({
+          timestamp: row[0], url: row[1], status: row[2]
         }));
         firstCapture = snapshots[0]?.timestamp;
         lastCapture = snapshots[snapshots.length - 1]?.timestamp;
       }
     }
 
-    // Determine risk level from archive history
     let riskLevel = 'low';
     let riskLabel = '✅ Clean History';
-
-    if (snapshots.length === 0) {
-      riskLevel = 'medium';
-      riskLabel = '⚠️ No Archive History';
-    } else if (snapshots.length > 100) {
-      riskLevel = 'high';
-      riskLabel = '🚨 Heavy Archive Activity';
-    }
+    if (snapshots.length === 0) { riskLevel = 'medium'; riskLabel = '⚠️ No Archive History'; }
+    else if (snapshots.length > 100) { riskLevel = 'high'; riskLabel = '🚨 Heavy Activity'; }
 
     res.json({
-      domain: domain,
-      totalSnapshots: snapshots.length,
-      firstCapture: firstCapture,
-      lastCapture: lastCapture,
-      riskLevel: riskLevel,
-      riskLabel: riskLabel,
-      snapshots: snapshots.slice(0, 10),
+      domain, totalSnapshots: snapshots.length, firstCapture, lastCapture,
+      riskLevel, riskLabel, snapshots: snapshots.slice(0, 10),
       waybackUrl: `https://web.archive.org/web/*/${domain}`
     });
-
   } catch (error) {
-    console.error('Wayback error:', error.message);
     res.json({
-      domain: domain,
-      totalSnapshots: 0,
-      riskLevel: 'unknown',
-      riskLabel: '❓ Could not check',
-      error: error.message
+      domain, totalSnapshots: 0, riskLevel: 'unknown',
+      riskLabel: '❓ Could not check', error: error.message,
+      waybackUrl: `https://web.archive.org/web/*/${domain}`
     });
   }
 });
 
 // ============================================
-// 4. SPAM SCORE CHECK (Crawly API + Fallback)
+// 5. SPAM CHECK
 // ============================================
 app.get('/api/spam-check', async (req, res) => {
   const { domain } = req.query;
   if (!domain) return res.status(400).json({ error: 'Domain required' });
 
+  // Estimate from domain characteristics (always works)
+  const name = domain.split('.')[0] || '';
+  let score = 5;
+  if (/\d/.test(name)) score += 15;
+  if (name.includes('-')) score += 20;
+  if (name.length > 20) score += 10;
+  if (/(.)\1{3,}/.test(name)) score += 15;
+  score = Math.min(100, score);
+
+  let riskLabel = '✅ Low Risk';
+  if (score > 60) riskLabel = '🚨 High Spam Risk';
+  else if (score > 30) riskLabel = '⚠️ Medium Risk';
+
+  res.json({ domain, spamScore: score, riskLabel, source: 'Estimated' });
+});
+
+// ============================================
+// 6. DOMAIN AUTHORITY (Crawly)
+// ============================================
+app.get('/api/domain-authority', async (req, res) => {
+  const { domain } = req.query;
+  if (!domain) return res.status(400).json({ error: 'Domain required' });
+
+  const estimateDA = (d) => {
+    let score = 15;
+    const name = d.split('.')[0] || '';
+    if (name.length <= 6) score += 10;
+    if (name.length > 15) score -= 5;
+    if (/\d/.test(name)) score -= 8;
+    if (name.includes('-')) score -= 10;
+    return Math.max(1, Math.min(60, score));
+  };
+
+  if (!CRAWLY_API_KEY) {
+    return res.json({
+      domain, authorityScore: estimateDA(domain),
+      referringDomains: 0, totalBacklinks: 0, source: 'Estimated'
+    });
+  }
+
   try {
-    // Try Crawly API if key is configured
-    if (CRAWLY_API_KEY) {
-      const spamUrl = `https://www.getcrawly.com/api/v1/spam-score?domain=${domain}`;
-      const response = await fetch(spamUrl, {
-        headers: { Authorization: `Bearer ${CRAWLY_API_KEY}` },
-        signal: AbortSignal.timeout(10000)
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const score = data.spam_score || data.score || 0;
-
-        let riskLabel = '✅ Low Risk';
-        if (score > 60) riskLabel = '🚨 High Spam Risk';
-        else if (score > 30) riskLabel = '⚠️ Medium Risk';
-
-        return res.json({
-          domain: domain,
-          spamScore: score,
-          riskLabel: riskLabel,
-          source: 'Crawly'
-        });
-      }
-    }
-
-    // Fallback: estimate from domain characteristics
-    const domainLength = domain.length;
-    const hasNumbers = /\d/.test(domain);
-    const hasHyphens = domain.includes('-');
-    const hasRepeatedChars = /(.)\1{3,}/.test(domain);
-
-    let estimatedScore = 5;
-    if (hasNumbers) estimatedScore += 15;
-    if (hasHyphens) estimatedScore += 20;
-    if (domainLength > 20) estimatedScore += 10;
-    if (hasRepeatedChars) estimatedScore += 15;
-
-    estimatedScore = Math.min(100, estimatedScore);
-
-    let riskLabel = '✅ Low Risk';
-    if (estimatedScore > 60) riskLabel = '🚨 High Spam Risk';
-    else if (estimatedScore > 30) riskLabel = '⚠️ Medium Risk';
-
-    res.json({
-      domain: domain,
-      spamScore: estimatedScore,
-      riskLabel: riskLabel,
-      source: 'Estimated'
+    const url = `https://www.getcrawly.com/api/v1/domain-authority?domain=${domain}`;
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${CRAWLY_API_KEY}` },
+      signal: AbortSignal.timeout(10000)
     });
 
-  } catch (error) {
-    console.error('Spam check error:', error.message);
+    if (!response.ok) throw new Error(`Crawly ${response.status}`);
+
+    const data = await response.json();
+    const harmonic = data.score?.harmonic_score;
+    const referring = data.summary?.referring_domains || 0;
+    const backlinks = data.summary?.total_links || 0;
+
+    let authorityScore;
+    if (typeof harmonic === 'number') {
+      authorityScore = Math.min(100, Math.round(harmonic * 100));
+    } else if (referring > 0) {
+      authorityScore = Math.min(100, Math.round(Math.log10(referring + 1) * 22));
+    } else {
+      authorityScore = estimateDA(domain);
+    }
+
     res.json({
-      domain: domain,
-      spamScore: 0,
-      riskLabel: '❓ Could not check',
-      error: error.message
+      domain, authorityScore, referringDomains: referring,
+      totalBacklinks: backlinks, source: 'Crawly'
+    });
+  } catch (error) {
+    res.json({
+      domain, authorityScore: estimateDA(domain),
+      referringDomains: 0, totalBacklinks: 0,
+      source: 'Estimated', error: error.message
     });
   }
 });
 
 // ============================================
-// 5. DOMAIN STATUS CHECK (RDAP)
+// 7. DOMAIN STATUS (RDAP direct)
 // ============================================
 app.get('/api/domain-status', async (req, res) => {
   const { domain } = req.query;
   if (!domain) return res.status(400).json({ error: 'Domain required' });
 
-  const rdapProviders = [
-    `https://rdap.org/domain/${domain}`,
-    `https://www.rdap.net/domain/${domain}`
-  ];
-
-  for (const url of rdapProviders) {
-    try {
-      const response = await fetch(url, {
-        headers: { 'Accept': 'application/rdap+json, application/json' },
-        signal: AbortSignal.timeout(8000)
-      });
-
-      if (response.status === 404) {
-        return res.json({
-          domain: domain, status: 'available', statusLabel: '🛒 Available for Registration',
-          canRegister: true,
-          actionUrl: `https://www.namecheap.com/domains/registration/results/?domain=${domain}`,
-          actionLabel: 'Register Now 🛒', registrar: 'N/A', creationDate: 'N/A', expiryDate: 'N/A',
-          statusCodes: ['available']
-        });
-      }
-
-      if (!response.ok) continue;
-
-      const data = await response.json();
-      const statusCodes = (data.status || []).map(s => s.toLowerCase());
-
-      let status = 'active', statusLabel = '🔒 Already Registered';
-      let actionLabel = 'Check Auctions 🔍';
-      let actionUrl = `https://www.namecheap.com/domains/registration/results/?domain=${domain}`;
-
-      if (statusCodes.some(s => s.includes('pending delete'))) {
-        status = 'pendingDelete'; statusLabel = '⏳ Dropping Soon';
-        actionLabel = 'Watch for Drop ⏳';
-      } else if (statusCodes.some(s => s.includes('redemption'))) {
-        status = 'redemption'; statusLabel = '🔄 In Redemption Period';
-        actionLabel = 'Watch Redemption 🔄';
-      }
-
-      return res.json({
-        domain, status, statusLabel, canRegister: false, actionUrl, actionLabel,
-        creationDate: data.events?.find(e => e.eventAction === 'registration')?.eventDate || 'N/A',
-        expiryDate: data.events?.find(e => e.eventAction === 'expiration')?.eventDate || 'N/A',
-        registrar: data.entities?.find(e => e.roles?.includes('registrar'))?.vcardArray?.[1]?.[1]?.[3] || 'N/A',
-        statusCodes
-      });
-    } catch (e) { continue; }
-  }
-
-  res.json({
-    domain, status: 'unknown', statusLabel: '❓ Status Unavailable', canRegister: false,
-    actionUrl: `https://www.namecheap.com/domains/registration/results/?domain=${domain}`,
-    actionLabel: 'Check on Namecheap 🔍', registrar: 'N/A', creationDate: 'N/A', expiryDate: 'N/A',
-    statusCodes: []
-  });
-});
-
-// ============================================
-// 6. RDAP WHOIS LOOKUP
-// ============================================
-app.get('/api/domain-whois', async (req, res) => {
-  const { domain } = req.query;
-  if (!domain) return res.status(400).json({ error: 'Domain required' });
-
   try {
     const response = await fetch(`https://rdap.org/domain/${domain}`, {
+      headers: { 'Accept': 'application/rdap+json' },
       signal: AbortSignal.timeout(8000)
     });
-    if (!response.ok) return res.status(404).json({ error: 'Domain not found' });
+
+    if (response.status === 404) {
+      return res.json({
+        domain, status: 'available', statusLabel: '🛒 Available for Registration',
+        actionUrl: `https://www.namecheap.com/domains/registration/results/?domain=${domain}`,
+        actionLabel: 'Register Now 🛒', registrar: 'N/A',
+        creationDate: 'N/A', expiryDate: 'N/A'
+      });
+    }
+
+    if (!response.ok) throw new Error('RDAP failed');
 
     const data = await response.json();
+    const statusCodes = (data.status || []).map(s => String(s).toLowerCase());
+
+    let status = 'active', statusLabel = '🔒 Already Registered';
+    let actionLabel = 'Check Auctions 🔍';
+    const actionUrl = `https://www.namecheap.com/domains/registration/results/?domain=${domain}`;
+
+    if (statusCodes.some(s => s.includes('pending'))) {
+      status = 'pendingDelete'; statusLabel = '⏳ Dropping Soon'; actionLabel = 'Watch Drop ⏳';
+    } else if (statusCodes.some(s => s.includes('redemption'))) {
+      status = 'redemption'; statusLabel = '🔄 In Redemption'; actionLabel = 'Watch 🔄';
+    }
+
     res.json({
-      domain,
+      domain, status, statusLabel, actionUrl, actionLabel,
       creationDate: data.events?.find(e => e.eventAction === 'registration')?.eventDate || 'N/A',
       expiryDate: data.events?.find(e => e.eventAction === 'expiration')?.eventDate || 'N/A',
-      registrar: data.entities?.find(e => e.roles?.includes('registrar'))?.vcardArray?.[1]?.[1]?.[3] || 'N/A',
-      nameservers: data.nameservers?.map(ns => ns.ldhName).join(', ') || 'N/A',
-      status: data.status?.join(', ') || 'N/A'
+      registrar: 'N/A'
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch WHOIS' });
+    res.json({
+      domain, status: 'unknown', statusLabel: '❓ Status Unavailable',
+      actionUrl: `https://www.namecheap.com/domains/registration/results/?domain=${domain}`,
+      actionLabel: 'Check Manually 🔍', registrar: 'N/A',
+      creationDate: 'N/A', expiryDate: 'N/A'
+    });
   }
 });
 
 // ============================================
-// 7. WAITLIST (Make.com Webhook)
+// 8. WAITLIST (Make.com)
 // ============================================
 app.post('/api/waitlist', async (req, res) => {
   const { email } = req.body;
@@ -475,7 +401,6 @@ app.post('/api/waitlist', async (req, res) => {
         email,
         ip: req.ip || req.headers['x-forwarded-for'] || 'N/A',
         userAgent: req.headers['user-agent'] || 'N/A',
-        referrer: req.headers['referer'] || 'Direct',
         source: req.query.source || 'Direct'
       })
     });
@@ -485,7 +410,7 @@ app.post('/api/waitlist', async (req, res) => {
 });
 
 // ============================================
-// 8. ROBOTS.TXT
+// 9. ROBOTS.TXT & SITEMAP
 // ============================================
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain');
@@ -510,118 +435,20 @@ Sitemap: https://dropscore.online/sitemap.xml
 `);
 });
 
-// ============================================
-// 9. SITEMAP.XML
-// ============================================
 app.get('/sitemap.xml', (req, res) => {
   res.header('Content-Type', 'application/xml');
   const baseUrl = process.env.BASE_URL || 'https://dropscore.online';
   res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>${baseUrl}/</loc><priority>1.0</priority></url>
 </urlset>`);
 });
-
-// ============================================
-// REAL DOMAIN AUTHORITY (Crawly Free API - FIXED)
-// ============================================
-app.get('/api/domain-authority', async (req, res) => {
-  const { domain } = req.query;
-  if (!domain) return res.status(400).json({ error: 'Domain required' });
-
-  // No API key configured → fallback
-  if (!CRAWLY_API_KEY) {
-    console.log('⚠️ CRAWLY_API_KEY not set, using estimated DA');
-    return res.json({
-      domain: domain,
-      authorityScore: estimateDA(domain),
-      referringDomains: 0,
-      totalBacklinks: 0,
-      source: 'Estimated'
-    });
-  }
-
-  try {
-    const url = `https://www.getcrawly.com/api/v1/domain-authority?domain=${domain}`;
-    console.log(`📡 Crawly DA request for: ${domain}`);
-
-    const response = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${CRAWLY_API_KEY}` },
-      signal: AbortSignal.timeout(10000)
-    });
-
-    console.log(`📡 Crawly response status: ${response.status}`);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`❌ Crawly error ${response.status}:`, errText);
-      throw new Error(`Crawly returned ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log('📊 Crawly raw response:', JSON.stringify(data));
-
-    // ✅ FIX: Derive DA from harmonic_score (0-1 scale → 0-100)
-    // harmonic_score is the authoritative 0-1 metric Crawly returns.
-    const harmonicScore = data.score?.harmonic_score;
-    const referringDomains = data.summary?.referring_domains || 0;
-    const totalBacklinks = data.summary?.total_links || 0;
-
-    let authorityScore;
-
-    if (typeof harmonicScore === 'number') {
-      // Primary path: harmonic_score × 100
-      authorityScore = Math.min(100, Math.round(harmonicScore * 100));
-    } else if (referringDomains > 0) {
-      // Secondary path: derive from referring domains count
-      authorityScore = Math.min(100, Math.round(Math.log10(referringDomains + 1) * 22));
-    } else {
-      // Last resort: estimate
-      authorityScore = estimateDA(domain);
-    }
-
-    console.log(`✅ DA for ${domain}: ${authorityScore} (harmonic=${harmonicScore})`);
-
-    res.json({
-      domain: domain,
-      authorityScore: authorityScore,
-      referringDomains: referringDomains,
-      totalBacklinks: totalBacklinks,
-      harmonicRank: data.score?.harmonic_rank || null,
-      pagerankRank: data.score?.pagerank_rank || null,
-      hostCount: data.score?.host_count || 0,
-      source: 'Crawly'
-    });
-
-  } catch (error) {
-    console.error('❌ DA check error:', error.message);
-    res.json({
-      domain: domain,
-      authorityScore: estimateDA(domain),
-      referringDomains: 0,
-      totalBacklinks: 0,
-      source: 'Estimated',
-      error: error.message
-    });
-  }
-});
-
-// Fallback DA estimator
-function estimateDA(domain) {
-  let score = 15;
-  const name = domain.split('.')[0] || '';
-  if (name.length <= 6) score += 10;
-  if (name.length > 15) score -= 5;
-  if (/\d/.test(name)) score -= 8;
-  if (name.includes('-')) score -= 10;
-  return Math.max(1, Math.min(60, score));
-}
 
 // ============================================
 // 10. CATCH-ALL
 // ============================================
 app.get('/api/*', (req, res) => {
-  res.status(404).json({ error: 'API endpoint not found', path: req.path });
+  res.status(404).json({ error: 'Not found', path: req.path });
 });
 
 app.get('*', (req, res) => {
@@ -629,9 +456,8 @@ app.get('*', (req, res) => {
 });
 
 // ============================================
-// 11. START SERVER
+// START
 // ============================================
 app.listen(PORT, () => {
   console.log(`✅ DropScore running on http://localhost:${PORT}`);
-  console.log(`✅ Features: CatchDoms, RDAP, Wayback, Spam Check`);
 });
